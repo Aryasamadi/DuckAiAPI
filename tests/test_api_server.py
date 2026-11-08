@@ -37,6 +37,28 @@ def test_health_reports_proxy_configuration(client: TestClient) -> None:
     }
 
 
+def test_models_forward_without_authorization_when_upstream_key_is_absent(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("UPSTREAM_API_KEY", raising=False)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert "authorization" not in request.headers
+        return httpx.Response(200, json={"object": "list", "data": [{"id": "free-model"}]})
+
+    install_mock_upstream(monkeypatch, handler)
+    response = client.get("/v1/models", headers={"Authorization": "Bearer client-secret"})
+    assert response.status_code == 200
+    assert response.json()["data"][0]["id"] == "free-model"
+
+
+def test_health_reports_configured_when_upstream_key_is_optional(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("UPSTREAM_API_KEY", raising=False)
+    assert client.get("/health").json()["upstream_configured"] is True
+
+
 def test_models_forward_to_upstream_with_server_side_key(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
