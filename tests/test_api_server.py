@@ -32,7 +32,10 @@ def test_chat_completion_uses_duckai_client(client: TestClient, monkeypatch: pyt
         def ask(self, prompt, model, history):
             assert prompt == "hello"
             assert model == "gpt-5.4-mini"
-            assert history == [\n                {"role": "user", "content": [{"type": "text", "text": "previous"}]},\n                {"role": "assistant", "content": [{"type": "text", "text": "old answer"}]},\n            ]
+            assert history == [
+                {"role": "user", "content": [{"type": "text", "text": "previous"}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "old answer"}]},
+            ]
             return "hello from Duck.ai"
 
     monkeypatch.setattr(api_server, "_duck_client", lambda: FakeDuckAI())
