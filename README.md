@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🦆 DuckAi
+<img src="https://img.shields.io/badge/🦆-DuckAi-ff6d00?style=for-the-badge&labelColor=1a1a2e&logo=duckduckgo&logoColor=white" alt="DuckAi" width="100%"/>
+
+# DuckAi
 
 ### *DuckDuckGo AI Chat, straight from your terminal — completely free.*
 
