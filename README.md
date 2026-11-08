@@ -226,7 +226,8 @@ python duck_cli.py --lang fa             # Persian UI (or: setx DUCKAI_LANG fa)
 DuckAi/
 ├── duck_cli.py              # main CLI: chat, images, files, image generation
 ├── duck_voice.py            # dictation + live WebRTC voice session
-├── duck_i18n.py             # English/Persian UI strings
+├── duck_i18n.py             # UI language helper
+├── lang_fa.json             # Persian UI translations (JSON data)
 ├── jsa_jsdom.js             # Node runner that solves the duck.ai challenge
 ├── requirements.txt         # core Python deps
 ├── requirements-voice.txt   # optional voice deps
@@ -449,7 +450,8 @@ python duck_cli.py --lang fa             # رابط فارسی (یا: setx DUCKA
 DuckAi/
 ├── duck_cli.py              # CLI اصلی: چت، تصویر، فایل، تولید تصویر
 ├── duck_voice.py            # دیکته + جلسهٔ ویس زندهٔ WebRTC
-├── duck_i18n.py             # متن‌های دوزبانهٔ رابط
+├── duck_i18n.py             # کمکی زبان رابط
+├── lang_fa.json             # ترجمه‌های فارسی رابط (JSON)
 ├── jsa_jsdom.js             # اجراکنندهٔ Node برای حل چالش duck.ai
 ├── requirements.txt         # وابستگی‌های اصلی پایتون
 ├── requirements-voice.txt   # وابستگی‌های اختیاری صوتی
