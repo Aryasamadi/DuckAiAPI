@@ -35,7 +35,7 @@ def test_chat_completion_uses_duckai_client(client: TestClient, monkeypatch: pyt
             assert history == [{"role": "user", "content": [{"type": "text", "text": "previous"}]}]
             return "hello from Duck.ai"
 
-    monkeypatch.setattr(api_server, "_duck_client", FakeDuckAI)
+    monkeypatch.setattr(api_server, "_duck_client", lambda: FakeDuckAI())
     response = client.post(
         "/v1/chat/completions",
         headers={"Authorization": "Bearer client-secret"},
