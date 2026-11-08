@@ -674,7 +674,7 @@ class LiveVoiceSession:
         self._log(_("answer SDP applied — connecting ICE…"))
 
         # if the datachannel does not open within 30 s, retry from scratch
-        for _ in range(300):
+        for _wait in range(300):
             if self._stop.is_set() or self.connected.is_set():
                 break
             await asyncio.sleep(0.1)
