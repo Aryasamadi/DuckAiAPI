@@ -186,7 +186,7 @@ def _duck_stream(prompt: str, model: str, history: list[dict[str, Any]], request
             yield ("data: " + json.dumps(final_chunk) + "\n\n").encode("utf-8")
             yield b"data: [DONE]\n\n"
         except Exception as exc:
-            if getattr(exc, "status", None) == 429:
+            if getattr(exc, "status", getattr(exc, "status_code", None)) == 429:
                 retry_after = _set_duck_rate_limit(getattr(exc, "retry_after", None))
                 message = f"Duck.ai rate-limited the request. Retry after {retry_after} seconds."
                 error_type = "rate_limit_error"
