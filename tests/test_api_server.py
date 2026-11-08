@@ -52,6 +52,67 @@ def test_chat_completion_uses_duckai_client(client: TestClient, monkeypatch: pyt
     assert response.json()["choices"][0]["message"]["content"] == "hello from Duck.ai"
 
 
+@pytest.fixture(autouse=True)
+def reset_duckai_process_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Each test gets a clean process-wide session and rate-limit window.
+    monkeypatch.setattr(api_server, "_DUCK_CLIENT", None)
+    monkeypatch.setattr(api_server, "_DUCK_RATE_LIMIT_UNTIL", 0.0)
+
+
+def test_duck_client_is_reused_for_the_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    created = object()
+    calls = 0
+
+    def factory():
+        nonlocal calls
+        calls += 1
+        return created
+
+    monkeypatch.setattr(api_server, "_create_duck_client", factory)
+
+    assert api_server._duck_client() is created
+    assert api_server._duck_client() is created
+    assert calls == 1
+
+
+def test_challenge_429_is_returned_and_suppresses_repeat_handshakes(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeRateLimitError(Exception):
+        status = 429
+        retry_after = "45"
+
+    class FakeDuckAI:
+        fe_version = ""
+        jsa = ""
+
+        def __init__(self):
+            self.handshake_calls = 0
+
+        def rehandshake(self):
+            self.handshake_calls += 1
+            raise FakeRateLimitError("No challenge received (HTTP 429)")
+
+        def ask(self, prompt, model, history):
+            raise AssertionError("ask must not run when the challenge is rate-limited")
+
+    fake = FakeDuckAI()
+    monkeypatch.setattr(api_server, "_duck_client", lambda: fake)
+    request = {
+        "model": "mini",
+        "messages": [{"role": "user", "content": "hello"}],
+    }
+    headers = {"Authorization": "Bearer client-secret"}
+
+    first = client.post("/v1/chat/completions", headers=headers, json=request)
+    second = client.post("/v1/chat/completions", headers=headers, json=request)
+
+    assert first.status_code == 429
+    assert first.headers["retry-after"] == "45"
+    assert second.status_code == 429
+    assert fake.handshake_calls == 1
+
+
 def test_chat_requires_authentication(client: TestClient) -> None:
     response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
     assert response.status_code == 401
