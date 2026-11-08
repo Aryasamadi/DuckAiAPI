@@ -1,35 +1,34 @@
-# Temporary OpenAI-compatible proxy on GitHub Actions
+# Temporary Duck.ai API for Hermes
 
-This workflow exposes an authenticated OpenAI-compatible API through a temporary Cloudflare Tunnel. It forwards requests to an OpenAI-compatible upstream endpoint.
+This workflow exposes the existing DuckAi Python client through an authenticated OpenAI-compatible API and a temporary Cloudflare Tunnel. It is intended for personal testing.
 
 ## One-time setup
 
 In **Settings → Secrets and variables → Actions**, add:
 
-- `DUCKAI_API_TOKEN` — choose a long random token. This is the token you enter in Hermes (or another client) to access this proxy.
-- `UPSTREAM_API_KEY` — optional. Add it only if the upstream provider requires authentication. Leave this secret absent for keyless upstream endpoints; GitHub does not accept empty secrets.
+- `DUCKAI_API_TOKEN` — choose a long random token. Enter this same value in Hermes.
+
+No `UPSTREAM_API_KEY` or upstream Base URL is needed in Duck.ai mode.
 
 ## Start a session
 
 1. Open **Actions → Temporary Runner API Test → Run workflow**.
-2. Set `upstream_base_url` to the HTTPS OpenAI-compatible API base URL, usually ending in `/v1`.
-3. Set `tunnel_minutes` and run the workflow.
+2. Choose how many minutes to keep the temporary endpoint alive.
+3. Run the workflow and wait for the tunnel step.
 4. Copy `TEMPORARY_API_URL` from the job summary.
 
-When `UPSTREAM_API_KEY` is present, the proxy sends it as a Bearer token to the upstream. When it is absent or empty, the Authorization header is omitted.
+## Hermes configuration
 
-## Connect Hermes
+- **Base URL:** `TEMPORARY_API_URL/v1`
+- **API Token / API Key:** your `DUCKAI_API_TOKEN`
+- **Model:** choose an ID returned by `GET /v1/models`, such as `gpt-6-luna` or `gpt-5.4-mini`.
 
-- **Base URL:** `TEMPORARY_API_URL` followed by `/v1`
-- **API Token / API Key:** the value stored in `DUCKAI_API_TOKEN`
-- **Model:** choose a model ID returned by `GET /v1/models`
+## Supported endpoints
 
-## Endpoints
+- `GET /health` — mode and configuration status
+- `GET /v1/models` — Duck.ai model list
+- `POST /v1/chat/completions` — normal and SSE streaming chat completions
 
-- `GET /health` — public liveness/configuration check
-- `GET /v1/models` — authenticated; forwards to upstream `/models`
-- `POST /v1/chat/completions` — authenticated; forwards JSON and SSE streaming
+The adapter translates OpenAI-style chat messages to the existing `DuckAI` client in `duck_cli.py`. The client needs Python dependencies, Node.js 20, and `jsdom` to perform its current Duck.ai session bootstrap. Image input and tool calls are not exposed by this first API adapter; text chat and streaming are the test target.
 
-Only HTTPS upstream URLs are accepted. This code supports keyless OpenAI-compatible endpoints, but it does not implement Duck.ai's private browser interface or prove that Duck.ai exposes a public OpenAI-compatible endpoint. The upstream URL must actually provide the endpoints above.
-
-The workflow is manual-only (`workflow_dispatch`). Merging code does not restart or modify an already-running session; start a new workflow run to use the updated code.
+The workflow is manual-only. Starting a new workflow creates a new temporary tunnel; it does not restart or stop any other runner session.
