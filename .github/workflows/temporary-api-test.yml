@@ -39,9 +39,9 @@ jobs:
 
       - name: Validate required secrets and upstream URL
         env:
-          DUCKAI_API_TOKEN: \${{ secrets.DUCKAI_API_TOKEN }}
-          UPSTREAM_API_KEY: \${{ secrets.UPSTREAM_API_KEY }}
-          UPSTREAM_BASE_URL: \${{ inputs.upstream_base_url }}
+          DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
+          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
+          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           if [ -z "$DUCKAI_API_TOKEN" ]; then
             echo "::error::Add DUCKAI_API_TOKEN in Settings > Secrets and variables > Actions."
@@ -58,9 +58,9 @@ jobs:
 
       - name: Start OpenAI-compatible proxy
         env:
-          DUCKAI_API_TOKEN: \${{ secrets.DUCKAI_API_TOKEN }}
-          UPSTREAM_API_KEY: \${{ secrets.UPSTREAM_API_KEY }}
-          UPSTREAM_BASE_URL: \${{ inputs.upstream_base_url }}
+          DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
+          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
+          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           nohup uvicorn api_server:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
           for i in $(seq 1 30); do
@@ -95,7 +95,7 @@ jobs:
 
       - name: Keep API available
         env:
-          TUNNEL_MINUTES: \${{ inputs.tunnel_minutes }}
+          TUNNEL_MINUTES: ${{ inputs.tunnel_minutes }}
         run: |
           MINUTES=$(printf '%s' "$TUNNEL_MINUTES" | grep -E '^[0-9]+$' || echo 60)
           if [ "$MINUTES" -lt 1 ] || [ "$MINUTES" -gt 350 ]; then MINUTES=60; fi
