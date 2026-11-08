@@ -29,6 +29,26 @@ No API key &nbsp;•&nbsp; No account &nbsp;•&nbsp; Chat &nbsp;•&nbsp; Image
 
 ---
 
+<div align="center">
+
+<h2>📸 Screenshots / تصاویر</h2>
+
+<img src="screenshots/menu.png" width="720" alt="Interactive menu"/>
+<br/><br/>
+<img src="screenshots/chat.png" width="720" alt="One-off question"/>
+<br/><br/>
+<img src="screenshots/models.png" width="660" alt="Model picker"/>
+<br/><br/>
+<img src="screenshots/draw.png" width="720" alt="Image generation"/>
+<br/><br/>
+<img src="screenshots/sample-image.jpg" width="400" alt="Generated image sample"/>
+<br/>
+<i>Real output — interactive menu · chat · model picker · image generation &nbsp;|&nbsp; خروجی واقعی برنامه</i>
+
+</div>
+
+---
+
 <a id="english"></a>
 ## 🇬🇧 English
 
