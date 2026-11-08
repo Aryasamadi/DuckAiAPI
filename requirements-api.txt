@@ -1,3 +1,4 @@
-# Dependencies for the temporary HTTP API test server
+# Dependencies for the temporary OpenAI-compatible proxy
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1

@@ -3,6 +3,11 @@ name: Temporary Runner API Test
 on:
   workflow_dispatch:
     inputs:
+      upstream_base_url:
+        description: "OpenAI-compatible upstream API base URL (for example https://api.openai.com/v1)"
+        required: true
+        default: "https://api.openai.com/v1"
+        type: string
       tunnel_minutes:
         description: "How long to keep the temporary API tunnel alive (1-350 minutes)"
         required: true
@@ -26,21 +31,36 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install API dependencies
-        run: pip install -r requirements-api.txt
+      - name: Install API and test dependencies
+        run: |
+          pip install -r requirements-api.txt pytest
+          python -m compileall -q api_server.py
+          python -m pytest -q
 
-      - name: Validate required secret
+      - name: Validate required secrets and upstream URL
         env:
           DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
+          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
+          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           if [ -z "$DUCKAI_API_TOKEN" ]; then
             echo "::error::Add DUCKAI_API_TOKEN in Settings > Secrets and variables > Actions."
             exit 1
           fi
+          if [ -z "$UPSTREAM_API_KEY" ]; then
+            echo "::error::Add UPSTREAM_API_KEY in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          case "$UPSTREAM_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::upstream_base_url must start with https://"; exit 1 ;;
+          esac
 
-      - name: Start test API
+      - name: Start OpenAI-compatible proxy
         env:
           DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
+          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
+          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           nohup uvicorn api_server:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
           for i in $(seq 1 30); do
