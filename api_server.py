@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import threading
 import time
 import uuid
 from typing import Any, Iterator
@@ -12,7 +13,18 @@ from typing import Any, Iterator
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-app = FastAPI(title="Duck.ai OpenAI-Compatible API", version="2.0.0")
+app = FastAPI(title="Duck.ai OpenAI-Compatible API", version="2.1.0")
+
+# Keep one Duck.ai HTTP session for the lifetime of this API process. The
+# upstream client is stateful: it retains cookies, frontend version and VQD
+# proof between turns. Recreating it for every OpenAI request causes repeated
+# challenge/bootstrap traffic and can amplify upstream rate limits.
+_DUCK_CLIENT: Any | None = None
+_DUCK_CLIENT_LOCK = threading.Lock()
+_DUCK_OPERATION_LOCK = threading.Lock()
+_DUCK_RATE_LIMIT_LOCK = threading.Lock()
+_DUCK_RATE_LIMIT_UNTIL = 0.0
+_DUCK_RATE_LIMIT_DEFAULT_SECONDS = 60
 
 
 def require_api_token(
@@ -74,7 +86,7 @@ def _duck_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, 
     return prompt, history
 
 
-def _duck_client():
+def _create_duck_client():
     # Lazy import keeps the generic upstream proxy independent from Duck.ai dependencies.
     try:
         from duck_cli import DuckAI
@@ -83,31 +95,106 @@ def _duck_client():
     return DuckAI()
 
 
+def _duck_client():
+    """Return the process-wide, stateful Duck.ai session."""
+    global _DUCK_CLIENT
+    if _DUCK_CLIENT is None:
+        with _DUCK_CLIENT_LOCK:
+            if _DUCK_CLIENT is None:
+                _DUCK_CLIENT = _create_duck_client()
+    return _DUCK_CLIENT
+
+
+def _retry_after_seconds(value: Any = None) -> int:
+    try:
+        seconds = int(float(value))
+    except (TypeError, ValueError, OverflowError):
+        seconds = _DUCK_RATE_LIMIT_DEFAULT_SECONDS
+    return max(1, min(seconds, 3600))
+
+
+def _set_duck_rate_limit(retry_after: Any = None) -> int:
+    global _DUCK_RATE_LIMIT_UNTIL
+    seconds = _retry_after_seconds(retry_after)
+    with _DUCK_RATE_LIMIT_LOCK:
+        _DUCK_RATE_LIMIT_UNTIL = max(
+            _DUCK_RATE_LIMIT_UNTIL, time.monotonic() + seconds
+        )
+        return max(1, int(_DUCK_RATE_LIMIT_UNTIL - time.monotonic() + 0.999))
+
+
+def _check_duck_rate_limit() -> None:
+    with _DUCK_RATE_LIMIT_LOCK:
+        remaining = int(_DUCK_RATE_LIMIT_UNTIL - time.monotonic() + 0.999)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Duck.ai rate limit is active. Retry after {remaining} seconds.",
+            headers={"Retry-After": str(remaining)},
+        )
+
+
+def _raise_duck_exception(exc: Exception) -> None:
+    if getattr(exc, "status", None) == 429:
+        retry_after = _set_duck_rate_limit(getattr(exc, "retry_after", None))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Duck.ai rate-limited the request. Retry after {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        ) from exc
+    raise HTTPException(
+        status_code=502,
+        detail=f"Duck.ai request failed: {str(exc)[:800]}",
+    ) from exc
+
+
+def _prepare_duck_session(client: Any) -> None:
+    """Perform the first handshake before returning streaming HTTP headers."""
+    _check_duck_rate_limit()
+    if not hasattr(client, "rehandshake"):
+        return
+    if getattr(client, "fe_version", "") and getattr(client, "jsa", ""):
+        return
+    try:
+        client.rehandshake()
+    except Exception as exc:
+        _raise_duck_exception(exc)
+
+
 def _duck_stream(prompt: str, model: str, history: list[dict[str, Any]], request_id: str,
                  created: int) -> Iterator[bytes]:
     client = _duck_client()
-    try:
-        for kind, value in client.stream_events(prompt, model=model, history=history):
-            if kind != "message" or not value:
-                continue
-            chunk = {
-                "id": request_id,
-                "object": "chat.completion.chunk",
-                "created": created,
+    with _DUCK_OPERATION_LOCK:
+        try:
+            _check_duck_rate_limit()
+            for kind, value in client.stream_events(prompt, model=model, history=history):
+                if kind != "message" or not value:
+                    continue
+                chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": model,
+                    "choices": [{"index": 0, "delta": {"content": value}, "finish_reason": None}],
+                }
+                yield ("data: " + json.dumps(chunk, ensure_ascii=False) + "\n\n").encode("utf-8")
+            final_chunk = {
+                "id": request_id, "object": "chat.completion.chunk", "created": created,
                 "model": model,
-                "choices": [{"index": 0, "delta": {"content": value}, "finish_reason": None}],
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
             }
-            yield ("data: " + json.dumps(chunk, ensure_ascii=False) + "\n\n").encode("utf-8")
-        final_chunk = {
-            "id": request_id, "object": "chat.completion.chunk", "created": created,
-            "model": model,
-            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-        }
-        yield ("data: " + json.dumps(final_chunk) + "\n\n").encode("utf-8")
-        yield b"data: [DONE]\n\n"
-    except Exception as exc:
-        error = {"error": {"message": str(exc)[:1000], "type": "duckai_error"}}
-        yield ("data: " + json.dumps(error, ensure_ascii=False) + "\n\n").encode("utf-8")
+            yield ("data: " + json.dumps(final_chunk) + "\n\n").encode("utf-8")
+            yield b"data: [DONE]\n\n"
+        except Exception as exc:
+            if getattr(exc, "status", getattr(exc, "status_code", None)) == 429:
+                retry_after = _set_duck_rate_limit(getattr(exc, "retry_after", None))
+                message = f"Duck.ai rate-limited the request. Retry after {retry_after} seconds."
+                error_type = "rate_limit_error"
+            else:
+                message = str(exc)[:1000]
+                error_type = "duckai_error"
+            error = {"error": {"message": message, "type": error_type}}
+            yield ("data: " + json.dumps(error, ensure_ascii=False) + "\n\n").encode("utf-8")
 
 
 @app.get("/health")
@@ -181,18 +268,24 @@ async def chat_completions(request: Request):
 
     request_id = "chatcmpl-" + uuid.uuid4().hex
     created = int(time.time())
+    client = _duck_client()
     if payload.get("stream") is True:
+        # Fail before sending HTTP 200/SSE headers if the upstream challenge
+        # endpoint is already rate-limiting this session.
+        with _DUCK_OPERATION_LOCK:
+            _prepare_duck_session(client)
         return StreamingResponse(
             _duck_stream(prompt, model, history, request_id, created),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
         )
 
-    client = _duck_client()
-    try:
-        answer = client.ask(prompt, model=model, history=history)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Duck.ai request failed: {str(exc)[:800]}") from exc
+    with _DUCK_OPERATION_LOCK:
+        _prepare_duck_session(client)
+        try:
+            answer = client.ask(prompt, model=model, history=history)
+        except Exception as exc:
+            _raise_duck_exception(exc)
     return {
         "id": request_id,
         "object": "chat.completion",
