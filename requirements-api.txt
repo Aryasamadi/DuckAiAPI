@@ -1,0 +1,3 @@
+# Dependencies for the temporary HTTP API test server
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
