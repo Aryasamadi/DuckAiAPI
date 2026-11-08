@@ -71,7 +71,7 @@ jobs:
           chmod +x cloudflared
           nohup ./cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate > tunnel.log 2>&1 &
           for i in $(seq 1 45); do
-            URL=$(grep -Eo 'https://[a-z0-9-]+\\.trycloudflare\\.com' tunnel.log | head -n 1 || true)
+            URL=$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' tunnel.log | head -n 1 || true)
             if [ -n "$URL" ]; then
               echo "TEMPORARY_API_URL=$URL" | tee -a "$GITHUB_STEP_SUMMARY"
               echo "API base: $URL/v1"
