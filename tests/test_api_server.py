@@ -61,3 +61,25 @@ def test_rejects_unknown_model(client: TestClient) -> None:
         json={"model": "not-a-duck-model", "messages": [{"role": "user", "content": "hi"}]},
     )
     assert response.status_code == 400
+
+
+def test_streaming_chat_returns_openai_sse(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeDuckAI:
+        def stream_events(self, prompt, model, history):
+            assert prompt == "stream this"
+            yield ("message", "hello ")
+            yield ("message", "stream")
+
+    monkeypatch.setattr(api_server, "_duck_client", FakeDuckAI)
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        headers={"Authorization": "Bearer client-secret"},
+        json={"model": "luna", "stream": True, "messages": [{"role": "user", "content": "stream this"}]},
+    ) as response:
+        body = "".join(response.iter_text())
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert '"content": "hello "' in body
+    assert '"content": "stream"' in body
+    assert "data: [DONE]" in body
