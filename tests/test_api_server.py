@@ -32,7 +32,7 @@ def test_chat_completion_uses_duckai_client(client: TestClient, monkeypatch: pyt
         def ask(self, prompt, model, history):
             assert prompt == "hello"
             assert model == "gpt-5.4-mini"
-            assert history == [{"role": "user", "content": [{"type": "text", "text": "previous"}]}]
+            assert history == [\n                {"role": "user", "content": [{"type": "text", "text": "previous"}]},\n                {"role": "assistant", "content": [{"type": "text", "text": "old answer"}]},\n            ]
             return "hello from Duck.ai"
 
     monkeypatch.setattr(api_server, "_duck_client", lambda: FakeDuckAI())
@@ -70,7 +70,7 @@ def test_streaming_chat_returns_openai_sse(client: TestClient, monkeypatch: pyte
             yield ("message", "hello ")
             yield ("message", "stream")
 
-    monkeypatch.setattr(api_server, "_duck_client", FakeDuckAI)
+    monkeypatch.setattr(api_server, "_duck_client", lambda: FakeDuckAI())
     with client.stream(
         "POST",
         "/v1/chat/completions",
