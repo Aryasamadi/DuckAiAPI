@@ -37,10 +37,10 @@ def require_api_token(
 def upstream_config() -> tuple[str, str]:
     base_url = os.environ.get("UPSTREAM_BASE_URL", "").strip().rstrip("/")
     api_key = os.environ.get("UPSTREAM_API_KEY", "").strip()
-    if not base_url or not api_key:
+    if not base_url:
         raise HTTPException(
             status_code=503,
-            detail="Upstream is not configured. Set UPSTREAM_BASE_URL and UPSTREAM_API_KEY.",
+            detail="Upstream is not configured. Set UPSTREAM_BASE_URL.",
         )
 
     parsed = urlsplit(base_url)
@@ -110,9 +110,12 @@ async def forward(
     base_url, upstream_key = upstream_config()
     target_url = f"{base_url}/{endpoint.lstrip('/')}"
     headers = {
-        "Authorization": f"Bearer {upstream_key}",
         "Accept": request.headers.get("accept", "application/json"),
     }
+    # Some compatible upstreams accept anonymous requests. Never send an
+    # empty Bearer header when no upstream key is configured.
+    if upstream_key:
+        headers["Authorization"] = f"Bearer {upstream_key}"
     if body is not None:
         headers["Content-Type"] = request.headers.get("content-type", "application/json")
 
@@ -137,7 +140,6 @@ async def forward(
 def health() -> dict[str, Any]:
     configured = bool(
         os.environ.get("UPSTREAM_BASE_URL", "").strip()
-        and os.environ.get("UPSTREAM_API_KEY", "").strip()
         and os.environ.get("DUCKAI_API_TOKEN", "").strip()
     )
     return {"status": "ok", "mode": "openai-proxy", "upstream_configured": configured}

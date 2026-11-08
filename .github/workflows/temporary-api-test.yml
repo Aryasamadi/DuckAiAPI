@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       upstream_base_url:
-        description: "OpenAI-compatible upstream API base URL (for example https://api.openai.com/v1)"
+        description: "OpenAI-compatible upstream API base URL (HTTPS; keyless endpoints are supported)"
         required: true
         default: "https://api.openai.com/v1"
         type: string
@@ -37,18 +37,13 @@ jobs:
           python -m compileall -q api_server.py
           python -m pytest -q
 
-      - name: Validate required secrets and upstream URL
+      - name: Validate required client token and upstream URL
         env:
           DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
-          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
           UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           if [ -z "$DUCKAI_API_TOKEN" ]; then
             echo "::error::Add DUCKAI_API_TOKEN in Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          if [ -z "$UPSTREAM_API_KEY" ]; then
-            echo "::error::Add UPSTREAM_API_KEY in Settings > Secrets and variables > Actions."
             exit 1
           fi
           case "$UPSTREAM_BASE_URL" in
