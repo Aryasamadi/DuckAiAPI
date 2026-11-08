@@ -17,6 +17,7 @@ Chat&nbsp;&nbsp;💬&nbsp;&nbsp;·&nbsp;&nbsp;Image input&nbsp;&nbsp;🖼️&nbs
 [![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-c0c4cc?style=for-the-badge)](#)
 [![Stars](https://img.shields.io/badge/%E2%AD%90-Star-it!-ffd700?style=for-the-badge)](#)
+[![Live Demo](https://img.shields.io/badge/%F0%9F%8C%90_Live_Demo-darkbytee.github.io%2FDuckAi-ff6d00?style=for-the-badge)](https://darkbytee.github.io/DuckAi/)
 
 **🌐 Language / زبان:**&nbsp;&nbsp;[**English**](#english)&nbsp;&nbsp;·&nbsp;&nbsp;[**فارسی**](#farsi)
 

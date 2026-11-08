@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DuckAi — Free DuckDuckGo AI Chat in your terminal</title>
+<meta name="description" content="Free unofficial CLI for DuckDuckGo AI Chat (duck.ai): streaming chat with 6 free AI models, image input & generation, file attachments, dictation and live WebRTC voice calls. No API key, no account.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117; --bg2:#161b22; --card:#161b22; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --accent:#ff6d00; --accent2:#ff9e40;
+  --green:#3fb950; --blue:#58a6ff; --mono:'JetBrains Mono',Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Vazirmatn',-apple-system,'Segoe UI',sans-serif;line-height:1.6;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;background:rgba(13,17,23,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:20px;height:60px}
+.logo{font-weight:700;font-size:20px;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo .duck{color:var(--accent)}
+nav .links{display:flex;gap:18px;margin-left:auto}
+nav .links a{color:var(--muted);font-size:14px}
+nav .links a:hover{color:var(--text);text-decoration:none}
+.gh-btn{background:var(--accent);color:#fff!important;padding:7px 14px;border-radius:8px;font-weight:700;font-size:14px}
+.gh-btn:hover{background:var(--accent2);text-decoration:none}
+.lang-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.lang-toggle button{background:none;border:none;color:var(--muted);padding:6px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+.lang-toggle button.on{background:var(--accent);color:#fff;font-weight:700}
+
+/* hero */
+.hero{padding:70px 0 40px;display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.hero h1{font-size:44px;line-height:1.15;font-weight:700}
+.hero h1 .grad{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p.sub{color:var(--muted);font-size:18px;margin:14px 0 22px}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+.btn{padding:12px 22px;border-radius:10px;font-weight:700;font-size:15px;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);color:var(--text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2);text-decoration:none}
+.btn.ghost:hover{border-color:var(--accent);text-decoration:none}
+.hero .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+
+/* terminal */
+.term{background:#0a0d12;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.term-bar{background:#1c2128;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.term-bar .dot{width:12px;height:12px;border-radius:50%}
+.term-bar .t{margin:0 auto;color:var(--muted);font-size:12px;font-family:var(--mono)}
+.term-body{padding:16px;font-family:var(--mono);font-size:13px;line-height:1.7;min-height:280px;max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.term-body .c{color:var(--green)} .term-body .o{color:#c9d1d9} .term-body .m{color:var(--muted)} .term-body .h{color:var(--blue)}
+.cursor{display:inline-block;width:8px;height:16px;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* sections */
+section{padding:56px 0}
+.sec-head{text-align:center;margin-bottom:36px}
+.sec-head h2{font-size:30px}
+.sec-head p{color:var(--muted);margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-4px);border-color:var(--accent)}
+.card .ico{font-size:26px}
+.card h3{font-size:16px;margin:8px 0 6px}
+.card p{color:var(--muted);font-size:13.5px}
+
+/* demo */
+.demo-note{background:rgba(255,109,0,.08);border:1px solid rgba(255,109,0,.35);border-radius:10px;padding:12px 16px;font-size:13.5px;color:var(--accent2);margin-bottom:16px}
+.quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.quick button{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-family:var(--mono);font-size:13px}
+.quick button:hover{border-color:var(--accent);color:var(--accent2)}
+.demo-input{display:flex;gap:8px}
+.demo-input input{flex:1;background:#0a0d12;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-family:var(--mono);font-size:14px;outline:none}
+.demo-input input:focus{border-color:var(--accent)}
+.demo-input button{background:var(--accent);border:none;color:#fff;border-radius:8px;padding:0 22px;cursor:pointer;font-weight:700}
+.demo-input button:hover{background:var(--accent2)}
+
+/* models table */
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:14px}
+th{background:#1c2128;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:none}
+td code{background:#0a0d12;padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:12.5px;color:var(--accent2)}
+.tag{font-size:11px;padding:2px 10px;border-radius:20px;background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+
+/* screenshots */
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.shots figure{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.shots img{width:100%;display:block}
+.shots figcaption{padding:10px 14px;color:var(--muted);font-size:13px;text-align:center}
+.shots .full{grid-column:1/-1}
+
+/* install steps */
+.step{display:flex;gap:16px;margin-bottom:22px}
+.step .n{flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.code{position:relative;background:#0a0d12;border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:13.5px;overflow-x:auto;white-space:pre;color:#c9d1d9}
+.copy{position:absolute;top:8px;right:8px;background:#21262d;border:1px solid var(--border);color:var(--muted);border-radius:6px;font-size:11px;padding:4px 10px;cursor:pointer}
+.copy:hover{color:var(--text);border-color:var(--accent)}
+.step .b{flex:1;min-width:0}
+.step .b h4{margin-bottom:8px}
+
+/* footer */
+footer{border-top:1px solid var(--border);padding:36px 0;text-align:center;color:var(--muted);font-size:14px}
+footer .heart{color:var(--accent)}
+
+/* rtl */
+html[dir="rtl"] body{font-family:'Vazirmatn',Tahoma,sans-serif}
+html[dir="rtl"] th,html[dir="rtl"] td{text-align:right}
+html[dir="rtl"] .term-body,html[dir="rtl"] .code,html[dir="rtl"] .demo-input input,html[dir="rtl"] td code{direction:ltr;text-align:left}
+html[dir="rtl"] .step{flex-direction:row-reverse}
+
+@media(max-width:860px){.hero{grid-template-columns:1fr}.hero h1{font-size:34px}nav .links{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <div class="logo"><span class="duck">🦆</span> DuckAi</div>
+    <div class="links">
+      <a href="#features" data-en="Features" data-fa="امکانات">Features</a>
+      <a href="#demo" data-en="Live demo" data-fa="دموی زنده">Live demo</a>
+      <a href="#models" data-en="Models" data-fa="مدل‌ها">Models</a>
+      <a href="#screenshots" data-en="Screenshots" data-fa="تصاویر">Screenshots</a>
+      <a href="#install" data-en="Install" data-fa="نصب">Install</a>
+    </div>
+    <div class="lang-toggle">
+      <button id="btn-en" class="on" onclick="setLang('en')">EN</button>
+      <button id="btn-fa" onclick="setLang('fa')">فا</button>
+    </div>
+    <a class="gh-btn" href="https://github.com/DarkBytee/DuckAi" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<header class="wrap hero">
+  <div>
+    <h1 data-en='DuckDuckGo AI Chat, <span class="grad">straight from your terminal</span> — completely free.'
+        data-fa='چت هوش مصنوعی DuckDuckGo، <span class="grad">مستقیم در ترمینال شما</span> — کاملاً رایگان.'>
+      DuckDuckGo AI Chat, <span class="grad">straight from your terminal</span> — completely free.</h1>
+    <p class="sub" data-en="No API key · No account · No subscription. Streaming chat, image input & generation, file attachments, dictation and live two-way voice calls with 6 free AI models."
+       data-fa="بدون کلید API · بدون حساب · بدون اشتراک. گفتگوی استریمی، ورودی و تولید تصویر، پیوست فایل، دیکته و تماس زندهٔ صوتی دوطرفه با ۶ مدل رایگان هوش مصنوعی.">
+      No API key · No account · No subscription. Streaming chat, image input & generation, file attachments, dictation and live two-way voice calls with 6 free AI models.</p>
+    <div class="cta">
+      <a class="btn primary" href="#install" data-en="⚡ Get started" data-fa="⚡ شروع کنید">⚡ Get started</a>
+      <a class="btn ghost" href="https://github.com/DarkBytee/DuckAi" target="_blank" data-en="⭐ Star on GitHub" data-fa="⭐ ستاره در گیت‌هاب">⭐ Star on GitHub</a>
+    </div>
+    <div class="badges">
+      <img src="https://img.shields.io/badge/License-MIT-yellow" alt="MIT">
+      <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
+      <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" alt="Node">
+      <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform">
+    </div>
+  </div>
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>
+      <span class="t">duckai — real CLI output</span>
+    </div>
+    <div class="term-body" id="hero-term"></div>
+  </div>
+</header>
+
+<section id="features" class="wrap">
+  <div class="sec-head">
+    <h2 data-en="✨ Features" data-fa="✨ امکانات">✨ Features</h2>
+    <p data-en="Everything duck.ai offers — plus a few things it doesn't." data-fa="هر آنچه duck.ai ارائه می‌دهد — به‌علاوه چند چیز که نمی‌دهد.">Everything duck.ai offers — plus a few things it doesn't.</p>
+  </div>
+  <div class="grid" id="feat-grid"></div>
+</section>
+
+<section id="demo" class="wrap" style="background:var(--bg2)">
+  <div class="sec-head">
+    <h2 data-en="🖥️ Try it — live demo" data-fa="🖥️ امتحان کنید — دموی زنده">🖥️ Try it — live demo</h2>
+    <p data-en="Type a command below, or click one of the quick buttons." data-fa="یک دستور تایپ کنید یا یکی از دکمه‌های سریع را بزنید.">Type a command below, or click one of the quick buttons.</p>
+  </div>
+  <div class="demo-note" data-en="⚠ This demo replays real captured outputs — a static page cannot call duck.ai directly (browser CORS). Install the CLI for the real, live experience."
+       data-fa="⚠ این دمو خروجی‌های واقعیِ ثبت‌شده را بازپخش می‌کند — یک صفحهٔ استاتیک به‌دلیل CORS مرورگر نمی‌تواند مستقیم به duck.ai وصل شود. برای تجربهٔ واقعی، CLI را نصب کنید.">
+    ⚠ This demo replays real captured outputs — a static page cannot call duck.ai directly (browser CORS). Install the CLI for the real, live experience.</div>
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>
+      <span class="t">DuckAi — interactive demo</span>
+    </div>
+    <div class="term-body" id="demo-term" style="min-height:320px;max-height:420px"></div>
+  </div>
+  <div class="quick" style="margin-top:14px">
+    <button onclick="runCmd('help')">help</button>
+    <button onclick="runCmd('models')">models</button>
+    <button onclick="runCmd('ask What is DuckDuckGo?')">ask "What is DuckDuckGo?"</button>
+    <button onclick="runCmd('draw a cute orange duck')">draw</button>
+    <button onclick="runCmd('voice')">voice</button>
+    <button onclick="runCmd('clear')">clear</button>
+  </div>
+  <div class="demo-input">
+    <input id="demo-in" data-ph-en="Type a command… (help, ask <question>, draw, voice, models)" data-ph-fa="دستور بنویسید… (help، ask <سؤال>، draw، voice، models)" placeholder="Type a command… (help, ask <question>, draw, voice, models)" onkeydown="if(event.key==='Enter')submitDemo()">
+    <button onclick="submitDemo()" data-en="Run" data-fa="اجرا">Run</button>
+  </div>
+</section>
+
+<section id="models" class="wrap">
+  <div class="sec-head">
+    <h2 data-en="🤖 6 free AI models" data-fa="🤖 ۶ مدل رایگان هوش مصنوعی">🤖 6 free AI models</h2>
+    <p data-en="Mirrors duck.ai's own picker config — verified live." data-fa="مطابق کانفیگ خود duck.ai — به‌صورت زنده تست‌شده.">Mirrors duck.ai's own picker config — verified live.</p>
+  </div>
+  <table>
+    <thead><tr><th data-en="Shortcut" data-fa="میان‌بر">Shortcut</th><th>Model ID</th><th data-en="Notes" data-fa="توضیح">Notes</th><th></th></tr></thead>
+    <tbody>
+      <tr><td><code>luna</code></td><td><code>gpt-6-luna</code></td><td data-en="Free-tier default" data-fa="پیش‌فرض سطح رایگان">Free-tier default</td><td><span class="tag">FREE</span></td></tr>
+      <tr><td><code>mini</code></td><td><code>gpt-5.4-mini</code></td><td data-en="Faster, counts toward usage limits" data-fa="سریع‌تر، از سهمیه مصرف می‌گذرد">Faster, counts toward usage limits</td><td><span class="tag">FREE</span></td></tr>
+      <tr><td><code>haiku</code></td><td><code>claude-haiku-5-5</code></td><td data-en="Faster, counts toward usage limits" data-fa="سریع‌تر، از سهمیه مصرف می‌گذرد">Faster, counts toward usage limits</td><td><span class="tag">FREE</span></td></tr>
+      <tr><td><code>mistral</code></td><td><code>mistral-small-2603</code></td><td>—</td><td><span class="tag">FREE</span></td></tr>
+      <tr><td><code>oss</code></td><td><code>tinfoil/gpt-oss-120b</code></td><td data-en="Open-source 120B" data-fa="متن‌باز ۱۲۰ میلیارد پارامتری">Open-source 120B</td><td><span class="tag">FREE</span></td></tr>
+      <tr><td><code>gemma</code></td><td><code>tinfoil/gemma4-31b</code></td><td data-en="Open-source Gemma 4 31B" data-fa="متن‌باز Gemma 4 نسخهٔ 31B">Open-source Gemma 4 31B</td><td><span class="tag">FREE</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="screenshots" class="wrap" style="background:var(--bg2)">
+  <div class="sec-head">
+    <h2 data-en="📸 Screenshots — real output" data-fa="📸 اسکرین‌شات‌ها — خروجی واقعی">📸 Screenshots — real output</h2>
+    <p data-en="Captured from real runs of the CLI." data-fa="ثبت‌شده از اجراهای واقعی CLI.">Captured from real runs of the CLI.</p>
+  </div>
+  <div class="shots">
+    <figure><img src="screenshots/menu.png" alt="Interactive menu" loading="lazy"><figcaption data-en="Interactive menu" data-fa="منوی تعاملی">Interactive menu</figcaption></figure>
+    <figure><img src="screenshots/chat.png" alt="One-off question" loading="lazy"><figcaption data-en="One-off question (--ask)" data-fa="سؤال تک‌باره (--ask)">One-off question (--ask)</figcaption></figure>
+    <figure><img src="screenshots/models.png" alt="Model picker" loading="lazy"><figcaption data-en="Model picker" data-fa="انتخابگر مدل">Model picker</figcaption></figure>
+    <figure><img src="screenshots/voice.png" alt="Live voice call" loading="lazy"><figcaption data-en="Live WebRTC voice call" data-fa="تماس زندهٔ WebRTC">Live WebRTC voice call</figcaption></figure>
+    <figure class="full"><img src="screenshots/draw.png" alt="Image generation" loading="lazy" style="max-width:760px;margin:0 auto"><figcaption data-en="Image generation (--draw)" data-fa="تولید تصویر (--draw)">Image generation (--draw)</figcaption></figure>
+    <figure class="full" style="text-align:center"><img src="screenshots/sample-image.jpg" alt="Generated duck mascot" loading="lazy" style="max-width:360px;border-radius:12px"><figcaption data-en="Real generated image — a duck mascot 🦆" data-fa="تصویر واقعی تولیدشده — شعار اردک 🦆">Real generated image — a duck mascot 🦆</figcaption></figure>
+  </div>
+</section>
+
+<section id="install" class="wrap">
+  <div class="sec-head">
+    <h2 data-en="📦 Install in 60 seconds" data-fa="📦 نصب در ۶۰ ثانیه">📦 Install in 60 seconds</h2>
+    <p data-en="Python 3.10+ and Node.js 18+ required." data-fa="پیش‌نیاز: Python 3.10+ و Node.js 18+.">Python 3.10+ and Node.js 18+ required.</p>
+  </div>
+  <div class="step"><div class="n">1</div><div class="b">
+    <h4 data-en="Clone the repo" data-fa="دریافت ریپو">Clone the repo</h4>
+    <div class="code"><button class="copy" onclick="cp(this)">Copy</button>git clone https://github.com/DarkBytee/DuckAi.git
+cd DuckAi</div>
+  </div></div>
+  <div class="step"><div class="n">2</div><div class="b">
+    <h4 data-en="Install dependencies" data-fa="نصب وابستگی‌ها">Install dependencies</h4>
+    <div class="code"><button class="copy" onclick="cp(this)">Copy</button>pip install -r requirements.txt
+npm install</div>
+  </div></div>
+  <div class="step"><div class="n">3</div><div class="b">
+    <h4 data-en="Run it!" data-fa="اجرا!">Run it!</h4>
+    <div class="code"><button class="copy" onclick="cp(this)">Copy</button>python duck_cli.py</div>
+  </div></div>
+  <div class="demo-note" style="margin-top:8px">
+    <span data-en='🎙️ Optional voice features: <code>pip install -r requirements-voice.txt</code> — full guide in the <a href="https://github.com/DarkBytee/DuckAi#readme">README</a>.'
+         data-fa='🎙️ قابلیت‌های صوتی اختیاری: <code>pip install -r requirements-voice.txt</code> — راهنمای کامل در <a href="https://github.com/DarkBytee/DuckAi#readme">README</a>.'>
+      🎙️ Optional voice features: <code>pip install -r requirements-voice.txt</code> — full guide in the <a href="https://github.com/DarkBytee/DuckAi#readme">README</a>.</span>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b>🦆 DuckAi</b> — <span data-en="free AI, straight from your terminal" data-fa="هوش مصنوعی رایگان، مستقیم از ترمینال شما">free AI, straight from your terminal</span> · <span style="color:var(--accent)">♥</span></p>
+    <p style="margin-top:6px;font-size:12.5px" data-en="MIT License · Unofficial project, not affiliated with DuckDuckGo · Use responsibly"
+       data-fa="مجوز MIT · پروژهٔ غیررسمی، بدون وابستگی به DuckDuckGo · با مسئولیت خودتان استفاده کنید">MIT License · Unofficial project, not affiliated with DuckDuckGo · Use responsibly</p>
+  </div>
+</footer>
+
+<script>
+/* ── i18n toggle ── */
+function setLang(l){
+  document.documentElement.lang = l;
+  document.documentElement.dir = (l === "fa") ? "rtl" : "ltr";
+  document.querySelectorAll("[data-en]").forEach(function(el){
+    var v = el.getAttribute("data-" + l);
+    if (v !== null) el.innerHTML = v;
+  });
+  var inp = document.getElementById("demo-in");
+  if (inp) inp.placeholder = inp.getAttribute("data-ph-" + l) || inp.placeholder;
+  document.getElementById("btn-en").className = (l === "en") ? "on" : "";
+  document.getElementById("btn-fa").className = (l === "fa") ? "on" : "";
+}
+
+/* ── copy buttons ── */
+function cp(btn){
+  var code = btn.parentElement.textContent.replace(/^Copy/, "").replace(/\s+$/, "");
+  navigator.clipboard.writeText(code).then(function(){
+    btn.textContent = "✓"; setTimeout(function(){ btn.textContent = "Copy"; }, 1200);
+  });
+}
+
+/* ── features grid ── */
+var FEATS = [
+  ["💬","Streaming chat","Real-time token streaming with conversation memory","گفتگوی استریمی","پاسخ لحظه‌ای با حافظهٔ گفتگو"],
+  ["🖼️","Image input","JPG / PNG / WebP / BMP — auto-converted & resized","ورودی تصویر","JPG / PNG / WebP / BMP — تبدیل و کوچک‌سازی خودکار"],
+  ["📎","File attachments","Source files inlined into the prompt","پیوست فایل","فایل‌های کد داخل پرامپت"],
+  ["🎨","Image generation","Text → image, saved as JPEG with live progress","تولید تصویر","متن ← تصویر، ذخیرهٔ JPEG"],
+  ["🎙️","Dictation","Microphone or any audio file → transcript","دیکته","میکروفون یا فایل صوتی ← متن"],
+  ["📞","Live voice call","Full two-way WebRTC call with the AI","تماس زندهٔ صوتی","تماس کامل WebRTC دوطرفه"],
+  ["🔀","6 free models","GPT-6 Luna, Claude Haiku 5.5, Gemma 4 & more","۶ مدل رایگان","GPT-6 Luna، Claude Haiku 5.5، Gemma 4 و…"],
+  ["🌐","Proxy support","HTTP and SOCKS5 via --proxy","پروکسی","HTTP و SOCKS5 با --proxy"],
+  ["🌍","Bilingual UI","English + Persian (--lang fa)","رابط دوزبانه","انگلیسی + فارسی (--lang fa)"]
+];
+(function(){
+  var g = document.getElementById("feat-grid");
+  FEATS.forEach(function(f){
+    var d = document.createElement("div"); d.className = "card";
+    d.innerHTML = '<div class="ico">' + f[0] + '</div><h3 data-en="' + f[1] + '" data-fa="' + f[3] + '">' + f[1] +
+      '</h3><p data-en="' + f[2] + '" data-fa="' + f[4] + '">' + f[2] + '</p>';
+    g.appendChild(d);
+  });
+})();
+
+/* ── terminal helpers ── */
+function termWrite(el, text, cls){
+  var s = document.createElement("span");
+  s.className = cls || "o"; s.textContent = text;
+  el.appendChild(s); el.scrollTop = el.scrollHeight;
+  return s;
+}
+
+/* ── hero typewriter: real captured output ── */
+var HERO_SCRIPT = [
+  ["$ python duck_cli.py --ask \"What is DuckDuckGo? Answer in one short sentence.\"", "c"],
+  ["DuckDuckGo is a privacy-focused search engine that also offers", "o"],
+  ["free AI chat at duck.ai — no account needed.", "o"],
+  ["", "o"],
+  ["$ python duck_cli.py --draw \"cute orange duck with headphones\"", "c"],
+  ["   -> Drawing an orange duck mascot with headphones", "m"],
+  ["+ Saved: ./screenshots/duckai_20261108.jpg  (1024x1024, 115 KB)", "o"],
+  ["", "o"],
+  ["$ python duck_cli.py --voice", "c"],
+  ["  You: Hello DuckAI, what is the capital of France?", "o"],
+  ["  The capital of France is Paris.", "h"]
+];
+(function typeHero(){
+  var el = document.getElementById("hero-term");
+  var li = 0, ci = 0;
+  var cur = document.createElement("span"); cur.className = "cursor";
+  function step(){
+    if (li >= HERO_SCRIPT.length){ li = 0; el.innerHTML = ""; }
+    var line = HERO_SCRIPT[li][0], cls = HERO_SCRIPT[li][1];
+    if (ci === 0){ var sp = document.createElement("span"); sp.className = cls; el.appendChild(sp); }
+    var sp = el.lastChild; ci++;
+    sp.textContent = line.slice(0, ci);
+    if (!el.contains(cur)) el.appendChild(cur); else el.appendChild(cur);
+    el.scrollTop = el.scrollHeight;
+    if (ci >= line.length){ li++; ci = 0; setTimeout(step, line ? 500 : 250); }
+    else setTimeout(step, 18 + Math.random() * 30);
+  }
+  step();
+})();
+
+/* ── interactive demo (simulated, real captured outputs) ── */
+var demoTerm;
+function demoWrite(text, cls){ termWrite(demoTerm, text + "\n", cls); }
+function demoReset(){ demoTerm.innerHTML = ""; demoWrite("DuckAi demo — type 'help' for commands. (simulated)", "m"); }
+function demoImg(src){
+  var im = document.createElement("img");
+  im.src = src; im.style.maxWidth = "240px"; im.style.borderRadius = "8px"; im.style.display = "block"; im.style.margin = "6px 0";
+  demoTerm.appendChild(im); demoTerm.scrollTop = demoTerm.scrollHeight;
+}
+var DEMO = {
+  help: [
+    ["Commands in this demo:", "h"],
+    ["  ask <question>   one-off question (simulated answer)", "o"],
+    ["  draw <prompt>    generate an image (real captured output)", "o"],
+    ["  voice            live voice call transcript (real capture)", "o"],
+    ["  models           list the 6 free models", "o"],
+    ["  clear            clear the screen", "o"],
+    ["", "o"]
+  ],
+  models: [
+    ["luna    -> gpt-6-luna              FREE", "h"],
+    ["mini    -> gpt-5.4-mini            FREE", "o"],
+    ["haiku   -> claude-haiku-5-5        FREE", "o"],
+    ["mistral -> mistral-small-2603      FREE", "o"],
+    ["oss     -> tinfoil/gpt-oss-120b    FREE", "o"],
+    ["gemma   -> tinfoil/gemma4-31b      FREE", "o"],
+    ["", "o"]
+  ],
+  voice: [
+    ["Live voice session (WebRTC) — real captured transcript:", "h"],
+    ["  TURN: 1 server(s)", "m"],
+    ["  WebRTC: connected (ice: completed)", "m"],
+    ["  + Connected - start talking", "o"],
+    ["  You: Hello DuckAI, what is the capital of France?", "o"],
+    ["  The capital of France is Paris.", "h"],
+    ["", "o"]
+  ]
+};
+var CANNED_ASKS = [
+  ["What is DuckDuckGo?", "DuckDuckGo is a privacy-focused search engine that also offers free AI chat at duck.ai — no account needed."],
+  ["hi", "Hi there!"],
+  ["hello", "Hi there! How can I help you today?"]
+];
+function runCmd(raw){
+  var cmd = raw.trim();
+  if (!cmd) return;
+  demoWrite("You> " + cmd, "c");
+  var lower = cmd.toLowerCase();
+  if (lower === "clear"){ demoReset(); return; }
+  if (lower === "help" || lower === "/help"){ DEMO.help.forEach(function(l){ demoWrite(l[0], l[1]); }); return; }
+  if (lower === "models" || lower === "/model"){ DEMO.models.forEach(function(l){ demoWrite(l[0], l[1]); }); return; }
+  if (lower === "voice" || lower === "/live"){ DEMO.voice.forEach(function(l){ demoWrite(l[0], l[1]); }); return; }
+  if (lower.indexOf("draw") === 0 || lower.indexOf("/draw") === 0){
+    demoWrite("   -> Drawing an orange duck mascot with headphones", "m");
+    demoWrite("+ Saved: ./screenshots/sample-image.jpg  (1024x1024, 115 KB)", "o");
+    demoImg("screenshots/sample-image.jpg");
+    return;
+  }
+  if (lower.indexOf("ask") === 0 || lower.indexOf("/img") === 0 || lower.indexOf("/file") === 0 || lower.indexOf("/mic") === 0){
+    var q = cmd.slice(cmd.indexOf(" ") + 1).trim() || "hi";
+    var hit = null;
+    CANNED_ASKS.forEach(function(a){ if (!hit && q.toLowerCase().indexOf(a[0].toLowerCase()) !== -1) hit = a; });
+    var ans = hit ? hit[1] : ("[simulated] In the real CLI, \"" + q + "\" would be answered live by gpt-6-luna with streaming. Install DuckAi and ask for real!");
+    var i = 0;
+    (function type(){
+      if (i <= ans.length){
+        if (demoTerm.lastChild && demoTerm.lastChild._typing) demoTerm.lastChild.remove();
+        var s = demoWrite(ans.slice(0, i), "h"); s._typing = true;
+        i += 2; setTimeout(type, 18);
+      } else demoWrite("", "o");
+    })();
+    return;
+  }
+  demoWrite("Unknown command. Type 'help'.", "m");
+}
+function submitDemo(){ var inp = document.getElementById("demo-in"); var v = inp.value; inp.value = ""; runCmd(v); }
+demoTerm = document.getElementById("demo-term");
+demoReset();
+</script>
+</body>
+</html>
