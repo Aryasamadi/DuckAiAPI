@@ -3,11 +3,6 @@ name: Temporary Runner API Test
 on:
   workflow_dispatch:
     inputs:
-      upstream_base_url:
-        description: "OpenAI-compatible upstream API base URL (HTTPS; keyless endpoints are supported)"
-        required: true
-        default: "https://api.openai.com/v1"
-        type: string
       tunnel_minutes:
         description: "How long to keep the temporary API tunnel alive (1-350 minutes)"
         required: true
@@ -31,31 +26,31 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install API and test dependencies
+      - name: Set up Node.js for Duck.ai client
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install API, Duck.ai, and test dependencies
         run: |
           pip install -r requirements-api.txt pytest
-          python -m compileall -q api_server.py
+          npm install --no-save jsdom
+          python -m compileall -q api_server.py duck_cli.py duck_i18n.py
           python -m pytest -q
 
-      - name: Validate required client token and upstream URL
+      - name: Validate client token
         env:
           DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
-          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
         run: |
           if [ -z "$DUCKAI_API_TOKEN" ]; then
             echo "::error::Add DUCKAI_API_TOKEN in Settings > Secrets and variables > Actions."
             exit 1
           fi
-          case "$UPSTREAM_BASE_URL" in
-            https://*) ;;
-            *) echo "::error::upstream_base_url must start with https://"; exit 1 ;;
-          esac
 
-      - name: Start OpenAI-compatible proxy
+      - name: Start Duck.ai OpenAI-compatible API
         env:
           DUCKAI_API_TOKEN: ${{ secrets.DUCKAI_API_TOKEN }}
-          UPSTREAM_API_KEY: ${{ secrets.UPSTREAM_API_KEY }}
-          UPSTREAM_BASE_URL: ${{ inputs.upstream_base_url }}
+          DUCKAI_MODE: "1"
         run: |
           nohup uvicorn api_server:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
           for i in $(seq 1 30); do
@@ -76,7 +71,7 @@ jobs:
           chmod +x cloudflared
           nohup ./cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate > tunnel.log 2>&1 &
           for i in $(seq 1 45); do
-            URL=$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' tunnel.log | head -n 1 || true)
+            URL=$(grep -Eo 'https://[a-z0-9-]+\\.trycloudflare\\.com' tunnel.log | head -n 1 || true)
             if [ -n "$URL" ]; then
               echo "TEMPORARY_API_URL=$URL" | tee -a "$GITHUB_STEP_SUMMARY"
               echo "API base: $URL/v1"
@@ -94,5 +89,5 @@ jobs:
         run: |
           MINUTES=$(printf '%s' "$TUNNEL_MINUTES" | grep -E '^[0-9]+$' || echo 60)
           if [ "$MINUTES" -lt 1 ] || [ "$MINUTES" -gt 350 ]; then MINUTES=60; fi
-          echo "Temporary API will remain available for $MINUTES minute(s)."
+          echo "Temporary Duck.ai API will remain available for $MINUTES minute(s)."
           sleep "$((MINUTES * 60))"

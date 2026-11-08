@@ -1,4 +1,5 @@
-# Dependencies for the temporary OpenAI-compatible proxy
+# Dependencies for the temporary Duck.ai OpenAI-compatible API
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
 httpx>=0.27,<1
+requests>=2.31,<3

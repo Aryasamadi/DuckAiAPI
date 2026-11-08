@@ -1,0 +1,31 @@
+name: Duck.ai Adapter Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-api.txt pytest
+          npm install --no-save jsdom
+      - name: Compile and test
+        run: |
+          python -m compileall -q api_server.py duck_cli.py duck_i18n.py
+          python -m pytest -q
