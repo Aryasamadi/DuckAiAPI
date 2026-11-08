@@ -92,9 +92,11 @@ def b64_json(obj) -> str:
     return b64(json.dumps(obj, separators=(",", ":")).encode())
 
 class DuckAIError(RuntimeError):
-    def __init__(self, message: str, status: int | None = None):
+    def __init__(self, message: str, status: int | None = None,
+                 retry_after: str | None = None):
         super().__init__(message)
         self.status = status
+        self.retry_after = retry_after
 
 def image_to_data_url(path: str) -> dict:
 
@@ -210,7 +212,8 @@ class DuckAI:
         if not raw:
             raise DuckAIError(_("No challenge received (HTTP {code}): {t}")
                               .format(code=r.status_code, t=r.text[:200]),
-                              status=r.status_code)
+                              status=r.status_code,
+                              retry_after=r.headers.get("Retry-After"))
         return base64.b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8", "replace")
 
     def solve(self, js_source: str) -> dict:
@@ -325,7 +328,15 @@ class DuckAI:
                 break
             status = r.status_code
             last = "HTTP {c}: {t}".format(c=r.status_code, t=r.text[:200])
-
+            if status == 429:
+                retry_after = r.headers.get("Retry-After")
+                r.close()
+                raise DuckAIError(
+                    _("Duck.ai rate limit reached (HTTP 429)."),
+                    status=429,
+                    retry_after=retry_after,
+                )
+            r.close()
             time.sleep(2 + attempt * 2)
         else:
             raise DuckAIError(_("Chat failed after {n} attempts: {e}")
