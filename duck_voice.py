@@ -1,30 +1,4 @@
-# duck_voice.py — voice features for duck_cli.py
-#
-# Two modes (reverse-engineered from a real HAR capture + chunk.voice-session.js):
-#
-# 1) Dictation (voice -> text):
-#    POST /duckchat/v1/dictation
-#      headers: Content-Type: audio/webm, x-vqd-hash-1 (jsa proof),
-#               x-fe-version, x-duckai-chat-model, x-fe-signals
-#      body: raw webm/opus file
-#      response: {"action":"success","text":"..."}
-#
-# 2) Live voice (Realtime WebRTC) — exactly what the browser does:
-#    GET  /duckchat/v1/ice-servers -> TURN servers
-#    RTCPeerConnection (iceServers + datachannel "duckai-voice-session")
-#    POST /duckchat/v1/session  body: {"sdp": <offer>, "session": {"voice": "voice-1"}}
-#         response: answer SDP (ice-lite, two-way Opus audio + datachannel)
-#    Microphone audio goes out over RTP; events come back on the datachannel:
-#      input_audio_buffer.speech_started/stopped
-#      conversation.item.input_audio_transcription.completed -> your speech text
-#      response.output_audio_transcript.delta -> streaming answer text
-#      response.output_item.done -> final answer text
-#      output_audio_buffer.started/stopped/cleared -> assistant audio playback
-#      response.done -> final status (completed/cancelled/failed)
-#    The client sends nothing on the datachannel (VAD is server-side).
-#
-# Requirements:  pip install -r requirements-voice.txt  (sounddevice aiortc av numpy)
-# Note: wear headphones for live voice so speaker audio does not feed the microphone.
+
 
 import asyncio
 import base64
@@ -71,14 +45,12 @@ try:
 except Exception:
     HAS_AIORTC = False
 
-
 def deps_report() -> str:
     rows = [("numpy (audio math)", HAS_NUMPY),
             ("sounddevice (microphone)", HAS_SD),
             ("av/PyAV (Opus codec)", HAS_AV),
             ("aiortc (WebRTC)", HAS_AIORTC)]
     return " | ".join(("✔ " if ok else "✘ ") + name for name, ok in rows)
-
 
 def ensure_voice_deps(need_mic: bool = True, need_live: bool = False):
     missing = []
@@ -95,23 +67,18 @@ def ensure_voice_deps(need_mic: bool = True, need_live: bool = False):
             _("Voice packages are not installed: {pkgs}  ->  pip install {pkgs}")
             .format(pkgs=", ".join(missing)))
 
-
-# ────────────────────────── audio conversion / recording ──────────────────────────
-
 def is_webm(data: bytes) -> bool:
     return data[:4] == b"\x1aE\xdf\xa3"
 
-
 def resample_to_stereo48k(frames_iter, in_rate=None, in_layout="mono"):
-    """Resample any av audio input to s16/stereo/48000."""
+
     resampler = av.AudioResampler(format="s16", layout="stereo", rate=48000)
     for frame in frames_iter:
         for out in resampler.resample(frame):
             yield out
 
-
 def audio_file_to_webm(path: str, max_seconds: float = 120.0) -> bytes:
-    """Convert any audio file (wav/mp3/m4a/...) to webm/opus 48k."""
+
     if not HAS_AV:
         raise DuckAIError(_("PyAV is not installed  ->  pip install av"))
     try:
@@ -145,10 +112,9 @@ def audio_file_to_webm(path: str, max_seconds: float = 120.0) -> bytes:
         src.close()
     return buf.getvalue()
 
-
 def record_to_webm(max_seconds: float = 30.0, stop_event: threading.Event = None,
                    samplerate: int = 48000) -> bytes:
-    """Record from the microphone until Enter/stop or the time cap; output webm/opus."""
+
     if not HAS_SD:
         raise DuckAIError(_("sounddevice is not installed  ->  pip install sounddevice"))
     if not HAS_AV:
@@ -175,11 +141,10 @@ def record_to_webm(max_seconds: float = 30.0, stop_event: threading.Event = None
 
     if not chunks:
         raise DuckAIError(_("No audio captured — check your microphone."))
-    pcm = np.concatenate(chunks, axis=0)          # (N,1) int16
+    pcm = np.concatenate(chunks, axis=0)
     if pcm.shape[0] < samplerate // 5:
         raise DuckAIError(_("Recording was too short (< 0.2 s)."))
 
-    # int16 (N,1) -> planar mono frame -> resample to stereo 48k -> webm/opus
     mono = pcm.reshape(1, -1)
     src_frame = av.AudioFrame.from_ndarray(mono, format="s16", layout="mono")
     src_frame.sample_rate = samplerate
@@ -204,16 +169,12 @@ def record_to_webm(max_seconds: float = 30.0, stop_event: threading.Event = None
         pass
     return buf.getvalue()
 
-
-# ────────────────────────── dictation (voice -> text) ──────────────────────────
-
 def _fe_signals():
     return b64_json({"start": int(time.time() * 1000), "events": [],
                      "end": int(1500 + time.time() % 5000)})
 
-
 def transcribe_bytes(client: DuckAI, webm_data: bytes, model: str) -> str:
-    """Send webm/opus to the dictation endpoint and get the text."""
+
     if not (client.fe_version and client.jsa):
         client.rehandshake()
     headers = {
@@ -249,7 +210,6 @@ def transcribe_bytes(client: DuckAI, webm_data: bytes, model: str) -> str:
     raise DuckAIError(_("Dictation failed after {n} attempts: {e}")
                       .format(n=3, e=last_err))
 
-
 def transcribe_file(client: DuckAI, path: str, model: str) -> str:
     with open(path, "rb") as fh:
         data = fh.read()
@@ -257,20 +217,15 @@ def transcribe_file(client: DuckAI, path: str, model: str) -> str:
         data = audio_file_to_webm(path)
     return transcribe_bytes(client, data, model)
 
-
 def record_and_transcribe(client: DuckAI, model: str,
                           max_seconds: float = 30.0) -> str:
     data = record_to_webm(max_seconds=max_seconds)
     print(_("✔ Recorded ({kb} KB) — transcribing…").format(kb=len(data) // 1024), flush=True)
     return transcribe_bytes(client, data, model)
 
-
-# ────────────────────────── live voice (WebRTC) ──────────────────────────
-
 class _PacedAudioSource(AudioStreamTrack):
-    """48k/mono audio source paced at 20 ms — fed from the microphone or a file."""
 
-    BLOCK = 960   # 20 ms at 48 kHz — aiortc needs 960-sample frames for Opus
+    BLOCK = 960
 
     def __init__(self, feed: "queue.Queue", source_kind: str = "mic"):
         super().__init__()
@@ -279,11 +234,11 @@ class _PacedAudioSource(AudioStreamTrack):
         self._pts = 0
         self._next = time.monotonic()
         self._buf = np.zeros(0, dtype="int16")
-        self.muted = False          # microphone is muted while the assistant speaks
+        self.muted = False
         self._sent_muted = 0
 
     async def recv(self):
-        # 20 ms pacing with a fixed 960-sample block (important for server-side VAD)
+
         while len(self._buf) < self.BLOCK:
             block = await asyncio.get_event_loop().run_in_executor(
                 None, self._feed.get)
@@ -308,9 +263,7 @@ class _PacedAudioSource(AudioStreamTrack):
         self._pts += self.BLOCK
         return frame
 
-
 class _Player:
-    """Plays the assistant audio received from the track."""
 
     def __init__(self, samplerate: int = 48000):
         self.q: "queue.Queue" = queue.Queue(maxsize=64)
@@ -351,24 +304,21 @@ class _Player:
         except Exception:
             pass
 
-
 def _frame_to_interleaved(frame):
-    """Convert an av frame to an (N, channels) int16 array for sounddevice."""
+
     arr = frame.to_ndarray()
     ch = len(frame.layout.channels) if frame.layout else 1
     if getattr(frame.format, "is_planar", False):
-        inter = arr.T.reshape(-1)        # planar -> interleaved
+        inter = arr.T.reshape(-1)
     else:
-        inter = arr.reshape(-1)          # packed = already interleaved
+        inter = arr.reshape(-1)
     n = inter.size // ch
     out = inter.reshape(n, ch)
     if ch == 1:
-        out = np.repeat(out, 2, axis=1)  # mono -> stereo for playback
+        out = np.repeat(out, 2, axis=1)
     return out
 
-
 class LiveVoiceSession:
-    """Live voice chat with duck.ai (same protocol as the browser)."""
 
     def __init__(self, client: DuckAI, model: str = "gpt-6-luna",
                  voice: str = "voice-1", audio_in: str | None = None,
@@ -393,15 +343,13 @@ class LiveVoiceSession:
         self.mic: _PacedAudioSource | None = None
         self._stop = asyncio.Event()
         self._tasks = []
-        self.user_transcript = []   # [(role, text)]
+        self.user_transcript = []
         self.connected = threading.Event()
         self._loop = None
 
-    # ── helper ──
     def _log(self, msg: str):
         self.on_event("log", msg)
 
-    # ── microphone feed ──
     def _start_mic_feed(self, feed_q):
         def cb(indata, frames, t, status):
             try:
@@ -428,8 +376,7 @@ class LiveVoiceSession:
 
         def producer():
             try:
-                # the file plays once; afterwards continuous silence is sent so
-                # the server-side VAD sees the end of speech and answers
+
                 for frame in src.decode(astream):
                     if self._stop.is_set():
                         break
@@ -462,7 +409,6 @@ class LiveVoiceSession:
         self._feed_thread = threading.Thread(target=producer, daemon=True)
         self._feed_thread.start()
 
-    # ── datachannel ──
     def _on_dc_message(self, message):
         try:
             v = json.loads(message)
@@ -525,7 +471,6 @@ class LiveVoiceSession:
         elif t == "error":
             self.on_event("dc_error", v)
 
-    # ── received track (assistant audio) ──
     def _on_track(self, track):
         async def consume():
             try:
@@ -537,7 +482,6 @@ class LiveVoiceSession:
                 pass
         self._tasks.append(asyncio.ensure_future(consume()))
 
-    # ── connection ──
     def _session_headers(self, journey_id: str) -> dict:
         return {
             "Content-Type": "application/json",
@@ -652,7 +596,7 @@ class LiveVoiceSession:
 
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
-        # 418/500 are transient — send the same offer again with a fresh challenge
+
         answer_sdp = None
         for post_attempt in range(5):
             if post_attempt:
@@ -673,7 +617,6 @@ class LiveVoiceSession:
             RTCSessionDescription(sdp=answer_sdp, type="answer"))
         self._log(_("answer SDP applied — connecting ICE…"))
 
-        # if the datachannel does not open within 30 s, retry from scratch
         for _wait in range(300):
             if self._stop.is_set() or self.connected.is_set():
                 break
@@ -694,7 +637,7 @@ class LiveVoiceSession:
         self.connected.clear()
 
     def run(self, stop_event: threading.Event | None = None):
-        """Run the session (blocking). Ends on: Ctrl+C, stop_event or a closed channel."""
+
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
 
@@ -740,9 +683,6 @@ class LiveVoiceSession:
         for t in list(self._tasks):
             t.cancel()
 
-
-# ────────────────────────── terminal UI ──────────────────────────
-
 def live_status_printer(kind, val):
     if kind == "connected":
         print(_("  ✔ Connected — start talking (Enter = end)"), flush=True)
@@ -774,7 +714,6 @@ def live_status_printer(kind, val):
             val=json.dumps(val, ensure_ascii=False)[:200]), flush=True)
     elif kind == "end_reason":
         print(_("\n  (Session end reason: {val})").format(val=val), flush=True)
-
 
 def run_live(client: DuckAI, model: str, voice: str = "voice-1",
              audio_in: str | None = None, verbose: bool = False) -> list:

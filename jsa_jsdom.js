@@ -1,5 +1,3 @@
-// Solve a duck.ai jsa challenge with jsdom (no Chrome needed).
-// usage: node jsa_jsdom.js <challenge.js> [userAgent]
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
@@ -15,15 +13,12 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', {
 });
 const w = dom.window;
 
-// jsdom keeps its own UA/flag values; force what a plain Chrome reports.
 try {
   Object.defineProperty(w.navigator, 'userAgent', { get: () => UA, configurable: true });
   Object.defineProperty(w.navigator, 'appVersion', { get: () => UA.replace('Mozilla/', ''), configurable: true });
   Object.defineProperty(w.navigator, 'webdriver', { get: () => false, configurable: true });
 } catch (e) { /* ignore */ }
 
-// jsdom has no layout engine: give the probe element plausible Chrome metrics
-// (the checks only care that the box is non-empty).
 const proto = w.Element.prototype;
 for (const [prop, val] of [['offsetWidth', 17], ['offsetHeight', 35], ['scrollHeight', 19],
   ['clientWidth', 17], ['clientHeight', 35]]) {

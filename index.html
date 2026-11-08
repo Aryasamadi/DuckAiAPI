@@ -21,7 +21,6 @@ a{color:var(--accent2);text-decoration:none}
 a:hover{text-decoration:underline}
 .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
 
-/* nav */
 nav{position:sticky;top:0;z-index:50;background:rgba(13,17,23,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
 .nav-in{display:flex;align-items:center;gap:20px;height:60px}
 .logo{font-weight:700;font-size:20px;color:var(--text);display:flex;align-items:center;gap:8px}
@@ -35,7 +34,6 @@ nav .links a:hover{color:var(--text);text-decoration:none}
 .lang-toggle button{background:none;border:none;color:var(--muted);padding:6px 12px;cursor:pointer;font-family:inherit;font-size:13px}
 .lang-toggle button.on{background:var(--accent);color:#fff;font-weight:700}
 
-/* hero */
 .hero{padding:70px 0 40px;display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
 .hero h1{font-size:44px;line-height:1.15;font-weight:700}
 .hero h1 .grad{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
@@ -47,7 +45,6 @@ nav .links a:hover{color:var(--text);text-decoration:none}
 .btn.ghost:hover{border-color:var(--accent);text-decoration:none}
 .hero .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
 
-/* terminal */
 .term{background:#0a0d12;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .term-bar{background:#1c2128;padding:10px 14px;display:flex;align-items:center;gap:8px}
 .term-bar .dot{width:12px;height:12px;border-radius:50%}
@@ -57,7 +54,6 @@ nav .links a:hover{color:var(--text);text-decoration:none}
 .cursor{display:inline-block;width:8px;height:16px;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 
-/* sections */
 section{padding:56px 0}
 .sec-head{text-align:center;margin-bottom:36px}
 .sec-head h2{font-size:30px}
@@ -69,7 +65,6 @@ section{padding:56px 0}
 .card h3{font-size:16px;margin:8px 0 6px}
 .card p{color:var(--muted);font-size:13.5px}
 
-/* demo */
 .demo-note{background:rgba(255,109,0,.08);border:1px solid rgba(255,109,0,.35);border-radius:10px;padding:12px 16px;font-size:13.5px;color:var(--accent2);margin-bottom:16px}
 .quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .quick button{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-family:var(--mono);font-size:13px}
@@ -80,7 +75,6 @@ section{padding:56px 0}
 .demo-input button{background:var(--accent);border:none;color:#fff;border-radius:8px;padding:0 22px;cursor:pointer;font-weight:700}
 .demo-input button:hover{background:var(--accent2)}
 
-/* models table */
 table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
 th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:14px}
 th{background:#1c2128;color:var(--muted);font-weight:600}
@@ -88,14 +82,12 @@ tr:last-child td{border-bottom:none}
 td code{background:#0a0d12;padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:12.5px;color:var(--accent2)}
 .tag{font-size:11px;padding:2px 10px;border-radius:20px;background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.4)}
 
-/* screenshots */
 .shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
 .shots figure{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .shots img{width:100%;display:block}
 .shots figcaption{padding:10px 14px;color:var(--muted);font-size:13px;text-align:center}
 .shots .full{grid-column:1/-1}
 
-/* install steps */
 .step{display:flex;gap:16px;margin-bottom:22px}
 .step .n{flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
 .code{position:relative;background:#0a0d12;border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:13.5px;overflow-x:auto;white-space:pre;color:#c9d1d9}
@@ -104,11 +96,9 @@ td code{background:#0a0d12;padding:2px 8px;border-radius:6px;font-family:var(--m
 .step .b{flex:1;min-width:0}
 .step .b h4{margin-bottom:8px}
 
-/* footer */
 footer{border-top:1px solid var(--border);padding:36px 0;text-align:center;color:var(--muted);font-size:14px}
 footer .heart{color:var(--accent)}
 
-/* rtl */
 html[dir="rtl"] body{font-family:'Vazirmatn',Tahoma,sans-serif}
 html[dir="rtl"] th,html[dir="rtl"] td{text-align:right}
 html[dir="rtl"] .term-body,html[dir="rtl"] .code,html[dir="rtl"] .demo-input input,html[dir="rtl"] td code{direction:ltr;text-align:left}
@@ -271,7 +261,6 @@ npm install</div>
 </footer>
 
 <script>
-/* ── i18n toggle ── */
 function setLang(l){
   document.documentElement.lang = l;
   document.documentElement.dir = (l === "fa") ? "rtl" : "ltr";
@@ -285,7 +274,6 @@ function setLang(l){
   document.getElementById("btn-fa").className = (l === "fa") ? "on" : "";
 }
 
-/* ── copy buttons ── */
 function cp(btn){
   var code = btn.parentElement.textContent.replace(/^Copy/, "").replace(/\s+$/, "");
   navigator.clipboard.writeText(code).then(function(){
@@ -293,7 +281,6 @@ function cp(btn){
   });
 }
 
-/* ── features grid ── */
 var FEATS = [
   ["💬","Streaming chat","Real-time token streaming with conversation memory","گفتگوی استریمی","پاسخ لحظه‌ای با حافظهٔ گفتگو"],
   ["🖼️","Image input","JPG / PNG / WebP / BMP — auto-converted & resized","ورودی تصویر","JPG / PNG / WebP / BMP — تبدیل و کوچک‌سازی خودکار"],
@@ -315,7 +302,6 @@ var FEATS = [
   });
 })();
 
-/* ── terminal helpers ── */
 function termWrite(el, text, cls){
   var s = document.createElement("span");
   s.className = cls || "o"; s.textContent = text;
@@ -323,7 +309,6 @@ function termWrite(el, text, cls){
   return s;
 }
 
-/* ── hero typewriter: real captured output ── */
 var HERO_SCRIPT = [
   ["$ python duck_cli.py --ask \"What is DuckDuckGo? Answer in one short sentence.\"", "c"],
   ["DuckDuckGo is a privacy-focused search engine that also offers", "o"],
@@ -355,7 +340,6 @@ var HERO_SCRIPT = [
   step();
 })();
 
-/* ── interactive demo (simulated, real captured outputs) ── */
 var demoTerm;
 function demoWrite(text, cls){ termWrite(demoTerm, text + "\n", cls); }
 function demoReset(){ demoTerm.innerHTML = ""; demoWrite("DuckAi demo — type 'help' for commands. (simulated)", "m"); }

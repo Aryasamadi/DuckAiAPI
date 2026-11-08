@@ -1,42 +1,4 @@
 #!/usr/bin/env python3
-# duck_cli.py — free unofficial client for DuckDuckGo AI Chat (duck.ai)
-#
-# Protocol (reverse-engineered from a real HAR capture):
-#   1) GET  https://duck.ai/            -> data-version-tag + data-version-sha  => x-fe-version
-#   2) GET  /duckchat/v1/status (x-vqd-accept: 1)  -> x-vqd-hash-1 = base64(JS challenge)
-#   3)  Solve the challenge with Node + jsdom  ->  {server_hashes, client_hashes, signals, meta}
-#   4)  final x-vqd-hash-1 = base64(JSON with client_hashes = base64(sha256(raw)))
-#   5) POST /duckchat/v1/chat  -> SSE response stream
-#
-# Features:
-#   * Image input: {"type":"image","mimeType":"image/webp","image":"data:image/webp;base64,..."}
-#     (the server only accepts WebP — JPEG/PNG/etc. are converted automatically with Pillow)
-#   * Image generation: metadata={"toolChoice":{"GenerateImage":true}} -> SSE events with
-#     role=ui-component, name=generate-image and data.b64Image (JPEG)
-#   * Text/code files are inlined into the prompt as fenced code blocks
-#   * Model switching: menu, --model argument, or the /model command mid-chat
-#   * Voice: dictation (voice -> text) and live two-way voice via WebRTC (see duck_voice.py)
-#   * UI language: English (default) or Persian — --lang fa or DUCKAI_LANG=fa
-#
-# Requirements:
-#   Python 3.10+   pip install -r requirements.txt
-#   Node.js on PATH +  npm install   (installs jsdom, in this folder)
-#
-# Free models (duck.ai frontend config, Nov 2026): gpt-6-luna (default),
-#         gpt-5.4-mini, claude-haiku-5-5, mistral-small-2603,
-#         tinfoil/gpt-oss-120b, tinfoil/gemma4-31b
-# Legacy (auto-upgraded by duck.ai): gpt-5.6-luna, gpt-5.4-nano, claude-haiku-4-5
-#
-# Usage:
-#   python duck_cli.py                                     -> interactive menu
-#   python duck_cli.py --ask "Hello, how are you?"
-#   python duck_cli.py --ask "What is this?" --image photo.jpg
-#   python duck_cli.py --ask "What does this code do?" --file main.py
-#   python duck_cli.py --draw "a cute orange cat"          -> generate an image (saved as JPEG)
-#   python duck_cli.py --ask "hi" --model mini             -> gpt-5.4-mini
-#   python duck_cli.py --chat                              -> continuous chat with memory
-#   Inside chat:  /img pic.jpg   /file code.py   /draw a starry sky   /model   /exit
-#   Voice:  /mic (record + transcribe)   /live (live voice call)   --voice   --listen   --dictate FILE
 
 import argparse
 import base64
@@ -79,15 +41,9 @@ _BASE = "https://duck.ai"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 
-# Chat models. The free set mirrors duck.ai's own frontend config (checked Nov 2026):
-# these six models list the Free tier in their availableTo array:
-#   gpt-6-luna, gpt-5.4-mini, claude-haiku-5-5, mistral-small-2603,
-#   tinfoil/gpt-oss-120b, tinfoil/gemma4-31b
-# Legacy ids (gpt-5.6-luna, gpt-5.4-nano, claude-haiku-4-5) are still accepted —
-# duck.ai upgrades them to their replacement model.
 MODELS = {
-    # ── current free models ──
-    "luna": "gpt-6-luna",           # free-tier default model
+
+    "luna": "gpt-6-luna",
     "gpt-6-luna": "gpt-6-luna",
     "mini": "gpt-5.4-mini",
     "gpt-5.4-mini": "gpt-5.4-mini",
@@ -95,26 +51,23 @@ MODELS = {
     "claude-haiku-5-5": "claude-haiku-5-5",
     "mistral": "mistral-small-2603",
     "mistral-small-2603": "mistral-small-2603",
-    "oss": "tinfoil/gpt-oss-120b",  # open-source 120B
-    "gemma": "tinfoil/gemma4-31b",  # open-source Gemma 4 31B
-    # ── legacy ids (still work, auto-upgraded by duck.ai) ──
-    "gpt-5.6-luna": "gpt-5.6-luna",          # -> upgraded to gpt-6-luna
-    "gpt-5.4-nano": "gpt-5.4-nano",          # -> upgraded to gpt-6-luna
-    "claude-haiku-4-5": "claude-haiku-4-5",  # -> upgraded to claude-haiku-5-5
+    "oss": "tinfoil/gpt-oss-120b",
+    "gemma": "tinfoil/gemma4-31b",
+
+    "gpt-5.6-luna": "gpt-5.6-luna",
+    "gpt-5.4-nano": "gpt-5.4-nano",
+    "claude-haiku-4-5": "claude-haiku-4-5",
 }
 
 _LEGACY_MODELS = {"gpt-5.6-luna", "gpt-5.4-nano", "claude-haiku-4-5"}
 
-# Some models reject reasoningEffort "none" (HTTP 400 ERR_BAD_REQUEST).
-# Per-model defaults; every other model uses "none".
 REASONING_EFFORT = {
     "tinfoil/gpt-oss-120b": "low",
 }
 
-# Image limits (mirroring duck.ai browser behavior)
-IMG_MAX_DIM = 1568            # largest side
+IMG_MAX_DIM = 1568
 IMG_WEBP_QUALITY = 85
-IMG_MAX_PAYLOAD = 3_500_000   # data-url size cap to avoid HTTP 400
+IMG_MAX_PAYLOAD = 3_500_000
 
 _TEXT_EXTS = {
     ".txt", ".md", ".markdown", ".rst", ".log", ".csv", ".tsv", ".json",
@@ -129,33 +82,26 @@ _TEXT_EXTS = {
 
 _SOLVE_LOCK = threading.Lock()
 
-
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode()
-
 
 def sha256_b64(text: str) -> str:
     return b64(hashlib.sha256(text.encode()).digest())
 
-
 def b64_json(obj) -> str:
     return b64(json.dumps(obj, separators=(",", ":")).encode())
-
 
 class DuckAIError(RuntimeError):
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
         self.status = status
 
-
-# ─────────────────────────── image / file helpers ───────────────────────────
-
 def image_to_data_url(path: str) -> dict:
-    """Convert any image to a WebP data-url (the only format the server accepts)."""
+
     if not os.path.isfile(path):
         raise DuckAIError(_("Image file not found: {path}").format(path=path))
     if not HAS_PIL:
-        # Without Pillow only raw WebP files can be sent as-is
+
         with open(path, "rb") as fh:
             raw = fh.read()
         if len(raw) > IMG_MAX_PAYLOAD:
@@ -173,13 +119,13 @@ def image_to_data_url(path: str) -> dict:
         raise DuckAIError(_("Failed to open image ({path}): {e}").format(path=path, e=e))
     if im.mode in ("RGBA", "P", "LA"):
         im = im.convert("RGBA")
-        # white background for transparency
+
         bg = Image.new("RGB", im.size, (255, 255, 255))
         bg.paste(im, mask=im.split()[-1])
         im = bg
     elif im.mode != "RGB":
         im = im.convert("RGB")
-    # downscale if too large
+
     w, h = im.size
     scale = max(w, h) / IMG_MAX_DIM
     if scale > 1:
@@ -188,7 +134,7 @@ def image_to_data_url(path: str) -> dict:
     buf = io.BytesIO()
     im.save(buf, "WEBP", quality=IMG_WEBP_QUALITY)
     data = buf.getvalue()
-    # if still too big, step the quality down
+
     q = IMG_WEBP_QUALITY
     while len(data) > IMG_MAX_PAYLOAD and q > 30:
         q -= 15
@@ -204,13 +150,11 @@ def image_to_data_url(path: str) -> dict:
         "image": "data:image/webp;base64," + b64(data),
     }
 
-
 def images_to_parts(paths: list[str]) -> list[dict]:
     return [image_to_data_url(p) for p in paths]
 
-
 def file_to_prompt_chunk(path: str, max_chars: int = 60_000) -> str:
-    """Inline a text/code file into the prompt as a fenced code block."""
+
     if not os.path.isfile(path):
         raise DuckAIError(_("File not found: {path}").format(path=path))
     ext = os.path.splitext(path)[1].lower().lstrip(".")
@@ -234,9 +178,6 @@ def file_to_prompt_chunk(path: str, max_chars: int = 60_000) -> str:
     return _("\n\nContent of file '{name}':\n```{lang}\n{content}\n```{trunc}\n").format(
         name=name, lang=lang, content=content, trunc=trunc)
 
-
-# ─────────────────────────────── client ───────────────────────────────
-
 class DuckAI:
     def __init__(self, ua: str = UA, timeout: int = 60, proxy: str | None = None):
         self.ua = ua
@@ -246,9 +187,7 @@ class DuckAI:
         if proxy:
             self.s.proxies = {"http": proxy, "https": proxy}
         self.fe_version = ""
-        self.jsa = ""  # last proof (reused for later requests of the same conversation)
-
-    # ────────── handshake ──────────
+        self.jsa = ""
 
     def bootstrap(self):
         r = self.s.get(_BASE + "/", timeout=self.timeout)
@@ -275,12 +214,11 @@ class DuckAI:
         return base64.b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8", "replace")
 
     def solve(self, js_source: str) -> dict:
-        """Run the challenge with Node + jsdom."""
+
         runner = os.path.join(HERE, "jsa_jsdom.js")
         if not os.path.isfile(runner):
             raise DuckAIError(_("jsa_jsdom.js not found — it must sit next to this script"))
-        # write the challenge to the system temp dir so this also works when the
-        # project folder itself is read-only
+
         fd, path = tempfile.mkstemp(suffix=".js")
         os.close(fd)
         try:
@@ -329,18 +267,16 @@ class DuckAI:
         return b64_json(proof)
 
     def rehandshake(self):
-        """Fetch a fresh challenge (fixes transient 418 responses)."""
+
         self.bootstrap()
         self.jsa = self.build_proof(self.solve(self.fetch_challenge()))
-
-    # ────────── chat ──────────
 
     def chat(self, prompt: str, model: str = "gpt-6-luna", tools: bool = True,
              history: list | None = None, images: list[dict] | None = None,
              draw: bool = False, prompt_extra: str = ""):
         content = [{"type": "text", "text": prompt + prompt_extra}]
         if images:
-            content.extend(images)  # same order as the browser: text first, then images
+            content.extend(images)
         msgs = (history or []) + [{"role": "user", "content": content}]
         body = {
             "model": model,
@@ -352,7 +288,7 @@ class DuckAI:
             "canShowGreeting": False,
         }
         if draw:
-            # what the browser does for "draw / make an image"
+
             body["metadata"] = {"toolChoice": {"GenerateImage": True}}
         headers = {
             "Content-Type": "application/json",
@@ -370,18 +306,10 @@ class DuckAI:
         return self.s.post(_BASE + "/duckchat/v1/chat", headers=headers,
                            data=json.dumps(body), stream=True, timeout=self.timeout)
 
-    # ────────── raw event stream ──────────
-
     def stream_events(self, prompt: str, model: str = "gpt-6-luna", retries: int = 4,
                       history: list | None = None, images: list[dict] | None = None,
                       draw: bool = False, prompt_extra: str = ""):
-        """Generator of SSE events; each item is one of:
-             ("message", str)         — a chunk of the answer text
-             ("image", dict)          — final image {b64, width, height, format}
-             ("image_partial", dict)  — progressive preview
-             ("image_title", str)     — image-generation step title
-             ("tool", dict)           — tool call (GenerateImage/WebSearch/...)
-           Errors raise DuckAIError."""
+
         r = None
         last = ""
         status = None
@@ -397,7 +325,7 @@ class DuckAI:
                 break
             status = r.status_code
             last = "HTTP {c}: {t}".format(c=r.status_code, t=r.text[:200])
-            # 418 = DDG anti-abuse score; a fresh challenge usually fixes it
+
             time.sleep(2 + attempt * 2)
         else:
             raise DuckAIError(_("Chat failed after {n} attempts: {e}")
@@ -410,7 +338,7 @@ class DuckAI:
             if not line.startswith("data: "):
                 continue
             payload = line[6:]
-            if payload.startswith("["):  # [PING] / [DONE] / [CHAT_TITLE:...]
+            if payload.startswith("["):
                 continue
             try:
                 ev = json.loads(payload)
@@ -422,12 +350,12 @@ class DuckAI:
                     .format(status=ev.get("status"), t=ev.get("type", "?")))
             role = ev.get("role", "")
             name = ev.get("name", "")
-            # answer text
+
             msg = ev.get("message")
             if isinstance(msg, str) and msg:
                 yield ("message", msg)
                 continue
-            # image-generation events
+
             if role == "ui-component" and name == "generate-image":
                 data = ev.get("data") or {}
                 dtype = data.get("type")
@@ -445,7 +373,7 @@ class DuckAI:
                         "format": data.get("format", "jpeg"),
                     })
                     continue
-            # tool calls
+
             if role == "tool-invocation":
                 yield ("tool", {
                     "toolName": ev.get("toolName"),
@@ -477,12 +405,10 @@ class DuckAI:
                 on_delta(delta)
         return "".join(parts)
 
-    # ────────── image generation ──────────
-
     def generate_image(self, prompt: str, model: str = "gpt-6-luna",
                        out_dir: str | None = None, on_progress=None,
                        retries: int = 4, history: list | None = None):
-        """Generate an image and save it as JPEG. Returns: (path, companion text, info)"""
+
         out_dir = out_dir or HERE
         os.makedirs(out_dir, exist_ok=True)
         img = None
@@ -520,7 +446,6 @@ class DuckAI:
             fh.write(raw)
         return path, "".join(text_parts), img
 
-    # continuous chat: keeps history in duck.ai's message format
     def chat_turn(self, prompt: str, model: str, history: list,
                   images: list[dict] | None = None,
                   files: list[str] | None = None) -> str:
@@ -544,22 +469,17 @@ class DuckAI:
             parts.append(delta)
         return "".join(parts)
 
-
-# ───────────────────────────── terminal UI ─────────────────────────────
-
 def print_header():
     print("\n" + "=" * 58)
     print("   " + _("DuckDuckGo AI Chat — unofficial free client (no API key)"))
     print("   " + _("See images ✔  Make images ✔  Read files ✔  Switch models ✔"))
-    lang_name = "English" if get_lang() == "en" else "Persian (فارسی)"
+    lang_name = "English" if get_lang() == "en" else "Persian (Farsi)"
     print("   " + _("Language: {lang}  (change with --lang en|fa or DUCKAI_LANG=fa)")
           .format(lang=lang_name))
     print("=" * 58)
 
-
 def model_table() -> list:
     return list(MODELS)
-
 
 def choose_model(current: str | None = None) -> str:
     print(_("\nPick a model:"))
@@ -579,12 +499,8 @@ def choose_model(current: str | None = None) -> str:
             return MODELS[keys[int(c) - 1]]
         print(_("Enter a valid number."))
 
-
 def resolve_model(name: str | None, default: str = "gpt-6-luna") -> str:
     return MODELS.get(name or "", name or default)
-
-
-# ─────────────────── chat loop with / commands ───────────────────
 
 HELP = _("\nCommands in chat:\n") + "\n".join([
     _("  /img <path> [path2 ...]   Attach image(s) to the next message "
@@ -599,7 +515,6 @@ HELP = _("\nCommands in chat:\n") + "\n".join([
     _("To send a normal message with an image/file: first run /img or /file, then type your text."),
 ])
 
-
 def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
     print(_("\nChat started") + HELP + "-" * 55)
     history = []
@@ -613,7 +528,6 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
         if not prompt:
             break
 
-        # ── voice commands ──
         if prompt == "/live":
             try:
                 import duck_voice as dv
@@ -632,7 +546,7 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
             except Exception as e:
                 print(_("[error] {e}").format(e=e))
                 continue
-        # ── commands ──
+
         if prompt.startswith("/"):
             parts = prompt.split(maxsplit=1)
             cmd = parts[0].lower()
@@ -682,7 +596,7 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
                         if kind == "title":
                             print("   🖌 " + val, flush=True)
                         elif kind == "partial":
-                            pass  # progressive previews are silenced
+                            pass
 
                     path, text, info = client.generate_image(
                         arg, model=model, out_dir=out_dir, on_progress=prog,
@@ -693,7 +607,7 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
                                   h=info.get("height"), kb=size_kb))
                     if text:
                         print(text)
-                    # keep it in history like the browser (for edits / follow-ups)
+
                     history.append({"role": "user",
                                     "content": [{"type": "text", "text": arg}]})
                     history.append({"role": "assistant", "content": "", "parts": [
@@ -708,7 +622,6 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
             print(_("Unknown command. See /help."))
             continue
 
-        # ── normal message (+ pending attachments) ──
         print("\n…", end="", flush=True)
         try:
             prompt_extra = ""
@@ -733,7 +646,6 @@ def chat_loop(client: DuckAI, model: str, out_dir: str | None = None):
             pending_files.clear()
     print("-" * 55)
 
-
 def draw_once(client: DuckAI, prompt: str, model: str, out_dir: str | None):
     print(_("\n🎨 Generating image: “{prompt}”").format(prompt=prompt))
     try:
@@ -751,7 +663,6 @@ def draw_once(client: DuckAI, prompt: str, model: str, out_dir: str | None):
     except Exception as e:
         print(_("[error] {e}").format(e=e))
         sys.exit(2)
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -915,7 +826,6 @@ def main():
             print("-" * 55)
         else:
             print(_("Enter a valid option."))
-
 
 if __name__ == "__main__":
     try:

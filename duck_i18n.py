@@ -1,10 +1,4 @@
-# duck_i18n.py — tiny two-language helper for the DuckAi CLI.
-#
-# English is the default UI language. Persian is enabled either with
-# the --lang fa flag or the DUCKAI_LANG=fa environment variable.
-#
-# Any string that has no Persian translation is returned unchanged,
-# so adding new messages never breaks the program.
+
 
 import os
 
@@ -12,21 +6,16 @@ _lang = (os.environ.get("DUCKAI_LANG", "") or "en").strip().lower()
 if _lang not in ("en", "fa"):
     _lang = "en"
 
-
 def set_lang(lang: str | None) -> None:
     global _lang
     if lang:
         _lang = lang if lang in ("en", "fa") else "en"
 
-
 def get_lang() -> str:
     return _lang
 
-
-# Persian translations, keyed by the exact English message.
 _FA = {}
 
-# duck_voice.py — setup / dependency messages
 _FA.update({
     "Voice packages are not installed: {pkgs}  ->  pip install {pkgs}":
         "پکیج‌های ویس نصب نیستند: {pkgs}  ←  pip install {pkgs}",
@@ -71,7 +60,7 @@ _FA.update({
         "answer SDP اعمال شد — در حال اتصال ICE…",
     "POST session attempt {n} failed: {e}":
         "POST session تلاش {n} ناموفق: {e}",
-    # live_status_printer
+
     "  ✔ Connected — start talking (Enter = end)":
         "  ✔ اتصال برقرار شد — صحبت کنید (Enter = پایان)",
     "\n  (File finished — waiting for the answer…)":
@@ -92,7 +81,6 @@ _FA.update({
     "Assistant": "دستیار",
 })
 
-# duck_cli.py — image / file helpers
 _FA.update({
     "Image file not found: {path}": "فایل تصویر پیدا نشد: {path}",
     "Image is too large and Pillow is not installed: {path}":
@@ -113,7 +101,6 @@ _FA.update({
     "text": "text",
 })
 
-# duck_cli.py — DuckAI class / network
 _FA.update({
     "jsa_jsdom.js not found — it must sit next to this script":
         "jsa_jsdom.js پیدا نشد — باید کنار همین اسکریپت باشد",
@@ -134,7 +121,6 @@ _FA.update({
     " (tool did not run?)": " (ابزار اجرا نشد؟)",
 })
 
-# duck_cli.py — terminal UI
 _FA.update({
     "DuckDuckGo AI Chat — unofficial free client (no API key)":
         "DuckDuckGo AI Chat — کلاینت غیررسمی رایگان (بدون کلید API)",
@@ -236,9 +222,8 @@ _FA.update({
     "Version {v}": "نسخه {v}",
 })
 
-
 def _(s: str) -> str:
-    """Translate an English message template; unknown strings pass through."""
+
     if _lang == "fa":
         return _FA.get(s, s)
     return s
