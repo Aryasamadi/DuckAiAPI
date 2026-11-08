@@ -147,3 +147,34 @@ def test_streaming_chat_returns_openai_sse(client: TestClient, monkeypatch: pyte
     assert '"content": "hello "' in body
     assert '"content": "stream"' in body
     assert "data: [DONE]" in body
+
+
+def test_duck_client_does_not_retry_http_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    from duck_cli import DuckAI, DuckAIError
+
+    class FakeResponse:
+        status_code = 429
+        headers = {"Retry-After": "12"}
+        text = "rate limited"
+
+        def close(self):
+            pass
+
+    client = DuckAI()
+    client.fe_version = "test-version"
+    client.jsa = "test-proof"
+    calls = 0
+
+    def fake_chat(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return FakeResponse()
+
+    monkeypatch.setattr(client, "chat", fake_chat)
+
+    with pytest.raises(DuckAIError) as exc_info:
+        list(client.stream_events("hello"))
+
+    assert exc_info.value.status == 429
+    assert exc_info.value.retry_after == "12"
+    assert calls == 1
