@@ -178,3 +178,28 @@ def test_duck_client_does_not_retry_http_429(monkeypatch: pytest.MonkeyPatch) ->
     assert exc_info.value.status == 429
     assert exc_info.value.retry_after == "12"
     assert calls == 1
+
+
+def test_duck_client_preserves_rate_limit_status_from_sse_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from duck_cli import DuckAI, DuckAIError
+
+    class FakeResponse:
+        status_code = 200
+
+        def iter_lines(self):
+            yield b'data: {"action":"error","status":429,"type":"ERR_RATE_LIMIT"}'
+
+        def close(self):
+            pass
+
+    client = DuckAI()
+    client.fe_version = "test-version"
+    client.jsa = "test-proof"
+    monkeypatch.setattr(client, "chat", lambda *args, **kwargs: FakeResponse())
+
+    with pytest.raises(DuckAIError) as exc_info:
+        list(client.stream_events("hello"))
+
+    assert exc_info.value.status == 429
