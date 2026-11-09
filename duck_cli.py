@@ -358,7 +358,10 @@ class DuckAI:
             if ev.get("action") == "error":
                 raise DuckAIError(
                     _("Server error ({status}): {t}")
-                    .format(status=ev.get("status"), t=ev.get("type", "?")))
+                    .format(status=ev.get("status"), t=ev.get("type", "?")),
+                    status=ev.get("status"),
+                    retry_after=ev.get("retryAfter") or ev.get("retry_after"),
+                )
             role = ev.get("role", "")
             name = ev.get("name", "")
 
